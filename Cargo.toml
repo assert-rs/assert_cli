@@ -1,0 +1,13 @@
+[package]
+name = "assert_cli"
+version = "0.1.0"
+authors = ["Pascal Hertleif <killercup@gmail.com>"]
+
+[features]
+default = []
+dev = ["clippy"]
+
+[dependencies]
+ansi_term = "0.6.3"
+difference = "0.4.0"
+clippy = {version = "0.0.19", optional = true}
