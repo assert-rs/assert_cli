@@ -7,6 +7,15 @@ is as expected.
 
 [![Build Status](https://travis-ci.org/killercup/assert_cli.svg)](https://travis-ci.org/killercup/assert_cli) [![Coverage Status](https://coveralls.io/repos/killercup/assert_cli/badge.svg?branch=master&service=github)](https://coveralls.io/github/killercup/assert_cli?branch=master)
 
+## Install
+
+Just add it to your `Cargo.toml`:
+
+```toml
+[dependencies]
+assert_cli = "0.1.0"
+```
+
 ## Example
 
 Here's a trivial example:
