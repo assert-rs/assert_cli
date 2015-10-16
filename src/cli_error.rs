@@ -6,7 +6,7 @@ use std::process::Output;
 use difference::Difference;
 
 pub enum CliError {
-    NoSuccess(Output),
+    WrongExitCode(Output),
     OutputMissmatch(Vec<Difference>),
 }
 
@@ -19,8 +19,8 @@ impl fmt::Display for CliError {
 impl fmt::Debug for CliError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            CliError::NoSuccess(ref output) => write!(f,
-                       "Non-success error code {code:?} with this stderr:\n{stderr}",
+            CliError::WrongExitCode(ref output) => write!(f,
+                       "Unexpected error code {code:?} with this stderr:\n{stderr}",
                        code = output.status.code(),
                        stderr = String::from_utf8_lossy(&output.stderr)),
             CliError::OutputMissmatch(ref diff) => {
@@ -37,7 +37,7 @@ impl fmt::Debug for CliError {
 impl Error for CliError {
     fn description(&self) -> &str {
         match *self {
-            CliError::NoSuccess(_) => "Command return non-success error code.",
+            CliError::WrongExitCode(_) => "Command return unexpected error code.",
             CliError::OutputMissmatch(_) => "Command output was not as expected.",
         }
     }

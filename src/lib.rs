@@ -75,10 +75,47 @@ pub fn assert_cli_output<S>(cmd: &str, args: &[S], expected_output: &str) -> Res
 
     call.and_then(|output| {
             if !output.status.success() {
-                return Err(From::from(CliError::NoSuccess(output)));
+                return Err(From::from(CliError::WrongExitCode(output)));
             }
 
             let stdout = String::from_utf8_lossy(&output.stdout);
+            let (distance, changes) = difference::diff(expected_output.trim(),
+                                                       &stdout.trim(),
+                                                       "\n");
+            if distance > 0 {
+                return Err(From::from(CliError::OutputMissmatch(changes)));
+            }
+
+            Ok(())
+        })
+        .map_err(From::from)
+}
+
+/// Assert a CLI call fails with the expected error code and output.
+pub fn assert_cli_output_error<S>(cmd: &str,
+                                  args: &[S],
+                                  error_code: Option<i32>,
+                                  expected_output: &str)
+                                  -> Result<(), Box<Error>>
+    where S: AsRef<OsStr>
+{
+    let call: Result<Output, Box<Error>> = Command::new(cmd)
+                                               .args(args)
+                                               .output()
+                                               .map_err(From::from);
+
+    call.and_then(|output| {
+            if output.status.success() {
+                return Err(From::from(CliError::WrongExitCode(output)));
+            }
+
+            match (error_code, output.status.code()) {
+                (Some(a), Some(b)) if a != b =>
+                    return Err(From::from(CliError::WrongExitCode(output))),
+                _ => {}
+            }
+
+            let stdout = String::from_utf8_lossy(&output.stderr);
             let (distance, changes) = difference::diff(expected_output.trim(),
                                                        &stdout.trim(),
                                                        "\n");
