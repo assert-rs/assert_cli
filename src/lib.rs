@@ -8,14 +8,14 @@
 //! Here's a trivial example:
 //!
 //! ```rust
-//! extern crate assert_cli;
+//! # extern crate assert_cli;
+//!
 //! assert_cli::assert_cli_output("echo", &["42"], "42").unwrap();
 //! ```
 //!
 //! And here is one that will fail:
 //!
 //! ```rust,should_panic
-//! extern crate assert_cli;
 //! assert_cli::assert_cli_output("echo", &["42"], "1337").unwrap();
 //! ```
 //!
@@ -25,6 +25,15 @@
 //! -1337
 //! +42
 //! ```
+//!
+//! Alternatively, you can use the `assert_cli!` macro:
+//!
+//! ```rust,ignore
+//! assert_cli!("echo 42" => Success, "42").unwrap();
+//! ```
+//!
+//! Make sure to include the crate as `#[macro_use] extern crate assert_cli;`.
+
 
 #![cfg_attr(feature = "dev", feature(plugin))]
 #![cfg_attr(feature = "dev", plugin(clippy))]
@@ -126,4 +135,26 @@ pub fn assert_cli_output_error<S>(cmd: &str,
             Ok(())
         })
         .map_err(From::from)
+}
+
+/// The `assert_cli!` macro combines the functionality of the other functions in this crate in one
+/// short macro.
+///
+/// ```rust,ignore
+/// assert_cli!("echo 42" => Success, "42").unwrap();
+/// assert_cli!("exit 11" => Error 11, "").unwrap();
+/// ```
+///
+/// Make sure to include the crate as `#[macro_use] extern crate assert_cli;`.
+#[macro_export]
+macro_rules! assert_cli {
+    ($cmd:expr, $args:expr => Success, $output:expr) => {{
+        $crate::assert_cli_output($cmd, $args, $output)
+    }};
+    ($cmd:expr, $args:expr => Error, $output:expr) => {{
+        $crate::assert_cli_output_error($cmd, $args, None, $output)
+    }};
+    ($cmd:expr, $args:expr => Error $err:expr, $output:expr) => {{
+        $crate::assert_cli_output_error($cmd, $args, Some($err), $output)
+    }};
 }
