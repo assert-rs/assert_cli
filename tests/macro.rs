@@ -16,8 +16,8 @@ fn assert_success() {
 
 #[test]
 fn assert_failure() {
-    assert_cli!("bash", &test_helper(66, "sorry, my bad") => Error, "sorry, my bad\n").unwrap();
-    assert_cli!("bash", &test_helper(42, "error no 42") => Error 42, "error no 42\n").unwrap();
+    assert_cli!("bash", &test_helper(66, "sorry, my bad") => Error, "sorry, my bad").unwrap();
+    assert_cli!("bash", &test_helper(42, "error no 42") => Error 42, "error no 42").unwrap();
 
     assert!(assert_cli!("echo", &["good"] => Error, "").is_err());
     assert!(assert_cli!("echo", &["good"] => Error 11, "").is_err());

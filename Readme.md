@@ -25,6 +25,14 @@ extern crate assert_cli;
 assert_cli::assert_cli_output("echo", &["42"], "42").unwrap();
 ```
 
+Or if you'd rather use the macro:
+
+```rust,ignore
+#[macro_use] extern crate assert_cli;
+assert_cli!("echo", &["42"] => Success, "42").unwrap();
+assert_cli!("black-box", &["--special"] => Error 42, "error no 42\n").unwrap()
+```
+
 And here is one that will fail:
 
 ```rust,should_panic

@@ -57,22 +57,22 @@ use cli_error::CliError;
 /// To test that
 ///
 /// ```sh
-/// ls -n1 src/
+/// bash -c $BLACK_BOX
 /// ```
 ///
 /// returns
 ///
 /// ```plain
-/// cli_error.rs
-/// diff.rs
-/// lib.rs
+/// Launch sequence initiated.
 /// ```
 ///
 /// you would call it like this:
 ///
-/// ```rust,no_run
+/// ```rust
 /// # extern crate assert_cli;
-/// assert_cli::assert_cli_output("ls", &["-n1", "src/"], "cli_error.rs\ndiff.rs\nlib.rs");
+/// # const BLACK_BOX: &'static str = r#"function test_helper() {\
+/// # echo "Launch sequence initiated."; return 0; }; test_helper"#;
+/// assert_cli::assert_cli_output("bash", &["-c", BLACK_BOX], "Launch sequence initiated.");
 /// ```
 pub fn assert_cli_output<S>(cmd: &str, args: &[S], expected_output: &str) -> Result<(), Box<Error>>
     where S: AsRef<OsStr>
@@ -100,7 +100,28 @@ pub fn assert_cli_output<S>(cmd: &str, args: &[S], expected_output: &str) -> Res
         .map_err(From::from)
 }
 
-/// Assert a CLI call fails with the expected error code and output.
+/// Assert a CLI call that fails the expected `stderr` output and error code.
+///
+/// To test that
+///
+/// ```sh
+/// bash -c $BLACK_BOX
+/// ```
+///
+/// fails with an exit code of `42` after printing this to `stderr`
+///
+/// ```plain
+/// error no 42!
+/// ```
+///
+/// you would call it like this:
+///
+/// ```rust
+/// # extern crate assert_cli;
+/// # const BLACK_BOX: &'static str = r#"function test_helper() {\
+/// # >&2 echo "error no 42!"; return 42; }; test_helper"#;
+/// assert_cli::assert_cli_output_error("bash", &["-c", BLACK_BOX], Some(42), "error no 42!");
+/// ```
 pub fn assert_cli_output_error<S>(cmd: &str,
                                   args: &[S],
                                   error_code: Option<i32>,
