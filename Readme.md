@@ -7,6 +7,8 @@ is as expected.
 
 [![Build Status](https://travis-ci.org/killercup/assert_cli.svg)](https://travis-ci.org/killercup/assert_cli) [![Coverage Status](https://coveralls.io/repos/killercup/assert_cli/badge.svg?branch=master&service=github)](https://coveralls.io/github/killercup/assert_cli?branch=master)
 
+**[Documentation](http://killercup.github.io/assert_cli/)**
+
 ## Install
 
 Just add it to your `Cargo.toml`:
