@@ -16,4 +16,4 @@ dev = ["clippy"]
 [dependencies]
 ansi_term = "0.6.3"
 difference = "0.4.0"
-clippy = {version = "0.0.21", optional = true}
+clippy = {version = "0.0.23", optional = true}
