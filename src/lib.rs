@@ -28,8 +28,11 @@
 //!
 //! Alternatively, you can use the `assert_cli!` macro:
 //!
-//! ```rust,ignore
-//! assert_cli!("echo 42" => Success, "42").unwrap();
+//! ```rust
+//! # #[macro_use] extern crate assert_cli;
+//! # fn main() {
+//! assert_cli!("echo", &["42"] => Success, "42").unwrap();
+//! # }
 //! ```
 //!
 //! Make sure to include the crate as `#[macro_use] extern crate assert_cli;`.
@@ -161,9 +164,15 @@ pub fn assert_cli_output_error<S>(cmd: &str,
 /// The `assert_cli!` macro combines the functionality of the other functions in this crate in one
 /// short macro.
 ///
-/// ```rust,ignore
-/// assert_cli!("echo 42" => Success, "42").unwrap();
-/// assert_cli!("exit 11" => Error 11, "").unwrap();
+/// ```rust
+/// #[macro_use] extern crate assert_cli;
+/// # const BLACK_BOX: &'static str = r#"function test_helper() {\
+/// # >&2 echo "error no 66!"; return 66; }; test_helper"#;
+///
+/// fn main() {
+///     assert_cli!("echo", &["42"] => Success, "42").unwrap();
+///     assert_cli!("bash", &["-c", BLACK_BOX] => Error 66, "error no 66!").unwrap();
+/// }
 /// ```
 ///
 /// Make sure to include the crate as `#[macro_use] extern crate assert_cli;`.
