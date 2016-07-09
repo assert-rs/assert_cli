@@ -49,6 +49,14 @@ this will show a nice, colorful diff in your terminal, like this:
 +42
 ```
 
+If you'd prefer to not check the output:
+
+```rust
+#[macro_use] extern crate assert_cli;
+assert_cli::assert_cli("echo", &["42"]).unwrap();
+assert_cli!("echo", &["42"] => Success).unwrap();
+```
+
 ## License
 
 Licensed under either of
