@@ -10,13 +10,16 @@ fn test_helper(exit_code: i32, output: &str) -> Vec<String> {
 
 #[test]
 fn assert_success() {
+    assert_cli!("true", &[""] => Success).unwrap();
     assert_cli!("echo", &["42"] => Success, "42").unwrap();
     assert!(assert_cli!("echo", &["1"] => Success, "42").is_err());
 }
 
 #[test]
 fn assert_failure() {
+    assert_cli!("bash", &test_helper(66, "sorry, my bad") => Error).unwrap();
     assert_cli!("bash", &test_helper(66, "sorry, my bad") => Error, "sorry, my bad").unwrap();
+    assert_cli!("bash", &test_helper(42, "error no 42") => Error 42).unwrap();
     assert_cli!("bash", &test_helper(42, "error no 42") => Error 42, "error no 42").unwrap();
 
     assert!(assert_cli!("echo", &["good"] => Error, "").is_err());

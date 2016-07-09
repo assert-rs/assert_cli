@@ -55,6 +55,42 @@ mod diff;
 
 use cli_error::CliError;
 
+
+/// Assert a CLI call
+///
+/// To test that
+///
+/// ```sh
+/// bash -c $BLACK_BOX
+/// ```
+///
+/// exits with the correct exit value. You would call it like this:
+///
+/// ```rust
+/// # extern crate assert_cli;
+/// # const BLACK_BOX: &'static str = r#"function test_helper() {\
+/// # echo "Launch sequence initiated."; return 0; }; test_helper"#;
+/// assert_cli::assert_cli("bash", &["-c", BLACK_BOX]);
+/// ```
+pub fn assert_cli<S>(cmd: &str, args: &[S]) -> Result<(), Box<Error>>
+    where S: AsRef<OsStr>
+{
+    let call: Result<Output, Box<Error>> = Command::new(cmd)
+                                               .args(args)
+                                               .output()
+                                               .map_err(From::from);
+
+    call.and_then(|output| {
+            if !output.status.success() {
+                return Err(From::from(CliError::WrongExitCode(output)));
+            }
+
+            Ok(())
+        })
+        .map_err(From::from)
+}
+
+
 /// Assert a CLI call returns the expected output.
 ///
 /// To test that
@@ -96,6 +132,51 @@ pub fn assert_cli_output<S>(cmd: &str, args: &[S], expected_output: &str) -> Res
                                                        "\n");
             if distance > 0 {
                 return Err(From::from(CliError::OutputMissmatch(changes)));
+            }
+
+            Ok(())
+        })
+        .map_err(From::from)
+}
+
+/// Assert a CLI call that fails with a given error code.
+///
+/// To test that
+///
+/// ```sh
+/// bash -c $BLACK_BOX
+/// ```
+///
+/// fails with an exit code of `42`.
+///
+/// you would call it like this:
+///
+/// ```rust
+/// # extern crate assert_cli;
+/// # const BLACK_BOX: &'static str = r#"function test_helper() {\
+/// # >&2 echo "error no 42!"; return 42; }; test_helper"#;
+/// assert_cli::assert_cli_error("bash", &["-c", BLACK_BOX], Some(42));
+/// ```
+pub fn assert_cli_error<S>(cmd: &str,
+                                  args: &[S],
+                                  error_code: Option<i32>)
+                                  -> Result<(), Box<Error>>
+    where S: AsRef<OsStr>
+{
+    let call: Result<Output, Box<Error>> = Command::new(cmd)
+                                               .args(args)
+                                               .output()
+                                               .map_err(From::from);
+
+    call.and_then(|output| {
+            if output.status.success() {
+                return Err(From::from(CliError::WrongExitCode(output)));
+            }
+
+            match (error_code, output.status.code()) {
+                (Some(a), Some(b)) if a != b =>
+                    return Err(From::from(CliError::WrongExitCode(output))),
+                _ => {}
             }
 
             Ok(())
@@ -170,7 +251,9 @@ pub fn assert_cli_output_error<S>(cmd: &str,
 /// # >&2 echo "error no 66!"; return 66; }; test_helper"#;
 ///
 /// fn main() {
+///     assert_cli!("true", &[""] => Success).unwrap();
 ///     assert_cli!("echo", &["42"] => Success, "42").unwrap();
+///     assert_cli!("bash", &["-c", BLACK_BOX] => Error 66).unwrap();
 ///     assert_cli!("bash", &["-c", BLACK_BOX] => Error 66, "error no 66!").unwrap();
 /// }
 /// ```
@@ -178,6 +261,9 @@ pub fn assert_cli_output_error<S>(cmd: &str,
 /// Make sure to include the crate as `#[macro_use] extern crate assert_cli;`.
 #[macro_export]
 macro_rules! assert_cli {
+    ($cmd:expr, $args:expr => Success) => {{
+        $crate::assert_cli($cmd, $args)
+    }};
     ($cmd:expr, $args:expr => Success, $output:expr) => {{
         $crate::assert_cli_output($cmd, $args, $output)
     }};
@@ -186,5 +272,11 @@ macro_rules! assert_cli {
     }};
     ($cmd:expr, $args:expr => Error $err:expr, $output:expr) => {{
         $crate::assert_cli_output_error($cmd, $args, Some($err), $output)
+    }};
+    ($cmd:expr, $args:expr => Error) => {{
+        $crate::assert_cli_error($cmd, $args, None)
+    }};
+    ($cmd:expr, $args:expr => Error $err:expr) => {{
+        $crate::assert_cli_error($cmd, $args, Some($err))
     }};
 }
