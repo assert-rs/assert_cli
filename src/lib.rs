@@ -35,6 +35,18 @@
 //! # }
 //! ```
 //!
+//! All exported functions and the macro return a `Result` containing the
+//! `Output` of the process, allowing you to do further custom assertions:
+//!
+//! ```rust
+//! # #[macro_use] extern crate assert_cli;
+//! # fn main() {
+//! let output = assert_cli!("echo", &["Number 42"] => Success).unwrap();
+//! let stdout = std::str::from_utf8(&output.stdout).unwrap();
+//! assert!(stdout.contains("42"));
+//! # }
+//! ```
+//!
 //! Make sure to include the crate as `#[macro_use] extern crate assert_cli;`.
 
 
