@@ -57,6 +57,16 @@ assert_cli::assert_cli("echo", &["42"]).unwrap();
 assert_cli!("echo", &["42"] => Success).unwrap();
 ```
 
+All exported functions and the macro return a `Result` containing the
+`Output` of the process, allowing you to do further custom assertions:
+
+```rust
+#[macro_use] extern crate assert_cli;
+let output = assert_cli!("echo", &["Number 42"] => Success).unwrap();
+let stdout = std::str::from_utf8(&output.stdout).unwrap();
+assert!(stdout.contains("42"));
+```
+
 ## License
 
 Licensed under either of

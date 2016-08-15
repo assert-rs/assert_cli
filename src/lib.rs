@@ -35,6 +35,18 @@
 //! # }
 //! ```
 //!
+//! All exported functions and the macro return a `Result` containing the
+//! `Output` of the process, allowing you to do further custom assertions:
+//!
+//! ```rust
+//! # #[macro_use] extern crate assert_cli;
+//! # fn main() {
+//! let output = assert_cli!("echo", &["Number 42"] => Success).unwrap();
+//! let stdout = std::str::from_utf8(&output.stdout).unwrap();
+//! assert!(stdout.contains("42"));
+//! # }
+//! ```
+//!
 //! Make sure to include the crate as `#[macro_use] extern crate assert_cli;`.
 
 
@@ -72,7 +84,7 @@ use cli_error::CliError;
 /// # echo "Launch sequence initiated."; return 0; }; test_helper"#;
 /// assert_cli::assert_cli("bash", &["-c", BLACK_BOX]);
 /// ```
-pub fn assert_cli<S>(cmd: &str, args: &[S]) -> Result<(), Box<Error>>
+pub fn assert_cli<S>(cmd: &str, args: &[S]) -> Result<Output, Box<Error>>
     where S: AsRef<OsStr>
 {
     let call: Result<Output, Box<Error>> = Command::new(cmd)
@@ -85,7 +97,7 @@ pub fn assert_cli<S>(cmd: &str, args: &[S]) -> Result<(), Box<Error>>
                 return Err(From::from(CliError::WrongExitCode(output)));
             }
 
-            Ok(())
+            Ok(output)
         })
         .map_err(From::from)
 }
@@ -113,7 +125,7 @@ pub fn assert_cli<S>(cmd: &str, args: &[S]) -> Result<(), Box<Error>>
 /// # echo "Launch sequence initiated."; return 0; }; test_helper"#;
 /// assert_cli::assert_cli_output("bash", &["-c", BLACK_BOX], "Launch sequence initiated.");
 /// ```
-pub fn assert_cli_output<S>(cmd: &str, args: &[S], expected_output: &str) -> Result<(), Box<Error>>
+pub fn assert_cli_output<S>(cmd: &str, args: &[S], expected_output: &str) -> Result<Output, Box<Error>>
     where S: AsRef<OsStr>
 {
     let call: Result<Output, Box<Error>> = Command::new(cmd)
@@ -126,15 +138,17 @@ pub fn assert_cli_output<S>(cmd: &str, args: &[S], expected_output: &str) -> Res
                 return Err(From::from(CliError::WrongExitCode(output)));
             }
 
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let (distance, changes) = difference::diff(expected_output.trim(),
-                                                       &stdout.trim(),
-                                                       "\n");
-            if distance > 0 {
-                return Err(From::from(CliError::OutputMissmatch(changes)));
+            {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let (distance, changes) = difference::diff(expected_output.trim(),
+                                                           &stdout.trim(),
+                                                           "\n");
+                if distance > 0 {
+                    return Err(From::from(CliError::OutputMissmatch(changes)));
+                }
             }
 
-            Ok(())
+            Ok(output)
         })
         .map_err(From::from)
 }
@@ -160,7 +174,7 @@ pub fn assert_cli_output<S>(cmd: &str, args: &[S], expected_output: &str) -> Res
 pub fn assert_cli_error<S>(cmd: &str,
                                   args: &[S],
                                   error_code: Option<i32>)
-                                  -> Result<(), Box<Error>>
+                                  -> Result<Output, Box<Error>>
     where S: AsRef<OsStr>
 {
     let call: Result<Output, Box<Error>> = Command::new(cmd)
@@ -179,7 +193,7 @@ pub fn assert_cli_error<S>(cmd: &str,
                 _ => {}
             }
 
-            Ok(())
+            Ok(output)
         })
         .map_err(From::from)
 }
@@ -210,7 +224,7 @@ pub fn assert_cli_output_error<S>(cmd: &str,
                                   args: &[S],
                                   error_code: Option<i32>,
                                   expected_output: &str)
-                                  -> Result<(), Box<Error>>
+                                  -> Result<Output, Box<Error>>
     where S: AsRef<OsStr>
 {
     let call: Result<Output, Box<Error>> = Command::new(cmd)
@@ -229,15 +243,17 @@ pub fn assert_cli_output_error<S>(cmd: &str,
                 _ => {}
             }
 
-            let stdout = String::from_utf8_lossy(&output.stderr);
-            let (distance, changes) = difference::diff(expected_output.trim(),
-                                                       &stdout.trim(),
-                                                       "\n");
-            if distance > 0 {
-                return Err(From::from(CliError::OutputMissmatch(changes)));
+            {
+                let stdout = String::from_utf8_lossy(&output.stderr);
+                let (distance, changes) = difference::diff(expected_output.trim(),
+                                                           &stdout.trim(),
+                                                           "\n");
+                if distance > 0 {
+                    return Err(From::from(CliError::OutputMissmatch(changes)));
+                }
             }
 
-            Ok(())
+            Ok(output)
         })
         .map_err(From::from)
 }
