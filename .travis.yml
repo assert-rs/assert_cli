@@ -25,6 +25,7 @@ addons:
     - libdw-dev
 after_success:
 - travis-cargo --only stable doc-upload
+- rm tests/skeptic.rs # "skip" skeptic doctests for coverage
 - travis-cargo coveralls --no-sudo
 notifications:
   email:

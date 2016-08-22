@@ -8,6 +8,7 @@ license = "MIT OR Apache-2.0"
 readme = "README.md"
 documentation = "http://killercup.github.io/assert_cli/"
 description = "Test CLI Applications."
+build = "build.rs"
 
 [features]
 default = []
@@ -17,3 +18,9 @@ dev = ["clippy"]
 ansi_term = "0.6.3"
 difference = "0.4.0"
 clippy = {version = "0.0.23", optional = true}
+
+[build-dependencies]
+skeptic = "0.5"
+
+[dev-dependencies]
+skeptic = "0.5"

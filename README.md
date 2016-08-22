@@ -24,22 +24,28 @@ Here's a trivial example:
 
 ```rust
 extern crate assert_cli;
-assert_cli::assert_cli_output("echo", &["42"], "42").unwrap();
+fn main() {
+  assert_cli::assert_cli_output("echo", &["42"], "42").unwrap();
+}
 ```
 
 Or if you'd rather use the macro:
 
 ```rust,ignore
 #[macro_use] extern crate assert_cli;
-assert_cli!("echo", &["42"] => Success, "42").unwrap();
-assert_cli!("black-box", &["--special"] => Error 42, "error no 42\n").unwrap()
+fn main() {
+  assert_cli!("echo", &["42"] => Success, "42").unwrap();
+  assert_cli!("black-box", &["--special"] => Error 42, "error no 42\n").unwrap()
+}
 ```
 
 And here is one that will fail:
 
 ```rust,should_panic
 extern crate assert_cli;
-assert_cli::assert_cli_output("echo", &["42"], "1337").unwrap();
+fn main() {
+  assert_cli::assert_cli_output("echo", &["42"], "1337").unwrap();
+}
 ```
 
 this will show a nice, colorful diff in your terminal, like this:
@@ -53,8 +59,10 @@ If you'd prefer to not check the output:
 
 ```rust
 #[macro_use] extern crate assert_cli;
-assert_cli::assert_cli("echo", &["42"]).unwrap();
-assert_cli!("echo", &["42"] => Success).unwrap();
+fn main() {
+  assert_cli::assert_cli("echo", &["42"]).unwrap();
+  assert_cli!("echo", &["42"] => Success).unwrap();
+}
 ```
 
 All exported functions and the macro return a `Result` containing the
@@ -62,9 +70,11 @@ All exported functions and the macro return a `Result` containing the
 
 ```rust
 #[macro_use] extern crate assert_cli;
-let output = assert_cli!("echo", &["Number 42"] => Success).unwrap();
-let stdout = std::str::from_utf8(&output.stdout).unwrap();
-assert!(stdout.contains("42"));
+fn main() {
+  let output = assert_cli!("echo", &["Number 42"] => Success).unwrap();
+  let stdout = std::str::from_utf8(&output.stdout).unwrap();
+  assert!(stdout.contains("42"));
+}
 ```
 
 ## License
