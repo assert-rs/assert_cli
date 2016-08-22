@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Assert` struct in crate `assert_cli`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Assert">
+
+    <title>assert_cli::Assert - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='index.html'>assert_cli</a></p><script>window.sidebarCurrent = {name: 'Assert', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>assert_cli</a>::<wbr><a class='struct' href=''>Assert</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/assert_cli/lib.rs.html#79-87' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Assert { /* fields omitted */ }</pre><div class='docblock'><p>Assertions for a specific command</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><span class='in-band'><code>impl <a class='struct' href='../assert_cli/struct.Assert.html' title='assert_cli::Assert'>Assert</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/assert_cli/lib.rs.html#105-381' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.main_binary' class='method'><span id='main_binary.v' class='invisible'><code>fn <a href='#method.main_binary' class='fnname'>main_binary</a>() -&gt; Self</code></span></h4>
+<div class='docblock'><p>Use the crate&#39;s main binary as command</p>
+</div><h4 id='method.cargo_binary' class='method'><span id='cargo_binary.v' class='invisible'><code>fn <a href='#method.cargo_binary' class='fnname'>cargo_binary</a>(name: &amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; Self</code></span></h4>
+<div class='docblock'><p>Use the crate&#39;s main binary as command</p>
+</div><h4 id='method.command' class='method'><span id='command.v' class='invisible'><code>fn <a href='#method.command' class='fnname'>command</a>(cmd: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a>&amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; Self</code></span></h4>
+<div class='docblock'><p>Use custom command</p>
+
+<h1 id='examples' class='section-header'><a href='#examples'>Examples</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>assert_cli</span>;
+
+<span class='ident'>assert_cli</span>::<span class='ident'>Assert</span>::<span class='ident'>command</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;echo&quot;</span>, <span class='string'>&quot;1337&quot;</span>])
+    .<span class='ident'>succeeds</span>()
+    .<span class='ident'>unwrap</span>();</pre>
+</div><h4 id='method.with_args' class='method'><span id='with_args.v' class='invisible'><code>fn <a href='#method.with_args' class='fnname'>with_args</a>(self, args: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a>&amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; Self</code></span></h4>
+<div class='docblock'><p>Add arguments to the command</p>
+
+<h1 id='examples-1' class='section-header'><a href='#examples-1'>Examples</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>assert_cli</span>;
+
+<span class='ident'>assert_cli</span>::<span class='ident'>Assert</span>::<span class='ident'>command</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;echo&quot;</span>])
+    .<span class='ident'>with_args</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;42&quot;</span>])
+    .<span class='ident'>succeeds</span>()
+    .<span class='ident'>prints</span>(<span class='string'>&quot;42&quot;</span>)
+    .<span class='ident'>unwrap</span>();</pre>
+</div><h4 id='method.and' class='method'><span id='and.v' class='invisible'><code>fn <a href='#method.and' class='fnname'>and</a>(self) -&gt; Self</code></span></h4>
+<div class='docblock'><p>Small helper to make chains more readable</p>
+
+<h1 id='examples-2' class='section-header'><a href='#examples-2'>Examples</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>assert_cli</span>;
+
+<span class='ident'>assert_cli</span>::<span class='ident'>Assert</span>::<span class='ident'>command</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;echo&quot;</span>, <span class='string'>&quot;42&quot;</span>])
+    .<span class='ident'>succeeds</span>().<span class='ident'>and</span>().<span class='ident'>prints</span>(<span class='string'>&quot;42&quot;</span>)
+    .<span class='ident'>unwrap</span>();</pre>
+</div><h4 id='method.succeeds' class='method'><span id='succeeds.v' class='invisible'><code>fn <a href='#method.succeeds' class='fnname'>succeeds</a>(self) -&gt; Self</code></span></h4>
+<div class='docblock'><p>Expect the command to be executed successfully</p>
+
+<h1 id='examples-3' class='section-header'><a href='#examples-3'>Examples</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>assert_cli</span>;
+
+<span class='ident'>assert_cli</span>::<span class='ident'>Assert</span>::<span class='ident'>command</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;echo&quot;</span>, <span class='string'>&quot;42&quot;</span>])
+    .<span class='ident'>succeeds</span>()
+    .<span class='ident'>unwrap</span>();</pre>
+</div><h4 id='method.fails' class='method'><span id='fails.v' class='invisible'><code>fn <a href='#method.fails' class='fnname'>fails</a>(self) -&gt; Self</code></span></h4>
+<div class='docblock'><p>Expect the command to fail</p>
+
+<h1 id='examples-4' class='section-header'><a href='#examples-4'>Examples</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>assert_cli</span>;
+
+<span class='ident'>assert_cli</span>::<span class='ident'>Assert</span>::<span class='ident'>command</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;cat&quot;</span>, <span class='string'>&quot;non-exisiting-file&quot;</span>])
+    .<span class='ident'>fails</span>()
+    .<span class='ident'>unwrap</span>();</pre>
+</div><h4 id='method.fails_with' class='method'><span id='fails_with.v' class='invisible'><code>fn <a href='#method.fails_with' class='fnname'>fails_with</a>(self, expect_exit_code: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>) -&gt; Self</code></span></h4>
+<div class='docblock'><p>Expect the command to fail and return a specific error code</p>
+
+<h1 id='examples-5' class='section-header'><a href='#examples-5'>Examples</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>assert_cli</span>;
+
+<span class='ident'>assert_cli</span>::<span class='ident'>Assert</span>::<span class='ident'>command</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;cat&quot;</span>, <span class='string'>&quot;non-exisiting-file&quot;</span>])
+    .<span class='ident'>fails_with</span>(<span class='number'>1</span>)
+    .<span class='ident'>unwrap</span>();</pre>
+</div><h4 id='method.prints' class='method'><span id='prints.v' class='invisible'><code>fn <a href='#method.prints' class='fnname'>prints</a>&lt;O:&nbsp;<a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.Into.html' title='core::convert::Into'>Into</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>&gt;&gt;(self, output: O) -&gt; Self</code></span></h4>
+<div class='docblock'><p>Expect the command&#39;s output to contain <code>output</code></p>
+
+<h1 id='examples-6' class='section-header'><a href='#examples-6'>Examples</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>assert_cli</span>;
+
+<span class='ident'>assert_cli</span>::<span class='ident'>Assert</span>::<span class='ident'>command</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;echo&quot;</span>, <span class='string'>&quot;42&quot;</span>])
+    .<span class='ident'>prints</span>(<span class='string'>&quot;42&quot;</span>)
+    .<span class='ident'>unwrap</span>();</pre>
+</div><h4 id='method.prints_exactly' class='method'><span id='prints_exactly.v' class='invisible'><code>fn <a href='#method.prints_exactly' class='fnname'>prints_exactly</a>&lt;O:&nbsp;<a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.Into.html' title='core::convert::Into'>Into</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>&gt;&gt;(self, output: O) -&gt; Self</code></span></h4>
+<div class='docblock'><p>Expect the command to output exactly this <code>output</code></p>
+
+<h1 id='examples-7' class='section-header'><a href='#examples-7'>Examples</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>assert_cli</span>;
+
+<span class='ident'>assert_cli</span>::<span class='ident'>Assert</span>::<span class='ident'>command</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;echo&quot;</span>, <span class='string'>&quot;42&quot;</span>])
+    .<span class='ident'>prints_exactly</span>(<span class='string'>&quot;42&quot;</span>)
+    .<span class='ident'>unwrap</span>();</pre>
+</div><h4 id='method.prints_error' class='method'><span id='prints_error.v' class='invisible'><code>fn <a href='#method.prints_error' class='fnname'>prints_error</a>&lt;O:&nbsp;<a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.Into.html' title='core::convert::Into'>Into</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>&gt;&gt;(self, output: O) -&gt; Self</code></span></h4>
+<div class='docblock'><p>Expect the command&#39;s stderr output to contain <code>output</code></p>
+
+<h1 id='examples-8' class='section-header'><a href='#examples-8'>Examples</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>assert_cli</span>;
+
+<span class='ident'>assert_cli</span>::<span class='ident'>Assert</span>::<span class='ident'>command</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;cat&quot;</span>, <span class='string'>&quot;non-exisiting-file&quot;</span>])
+    .<span class='ident'>fails</span>()
+    .<span class='ident'>prints_error</span>(<span class='string'>&quot;non-exisiting-file&quot;</span>)
+    .<span class='ident'>unwrap</span>();</pre>
+</div><h4 id='method.prints_error_exactly' class='method'><span id='prints_error_exactly.v' class='invisible'><code>fn <a href='#method.prints_error_exactly' class='fnname'>prints_error_exactly</a>&lt;O:&nbsp;<a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.Into.html' title='core::convert::Into'>Into</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>&gt;&gt;(self, output: O) -&gt; Self</code></span></h4>
+<div class='docblock'><p>Expect the command to output exactly this <code>output</code> to stderr</p>
+
+<h1 id='examples-9' class='section-header'><a href='#examples-9'>Examples</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>assert_cli</span>;
+
+<span class='ident'>assert_cli</span>::<span class='ident'>Assert</span>::<span class='ident'>command</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;cat&quot;</span>, <span class='string'>&quot;non-exisiting-file&quot;</span>])
+    .<span class='ident'>fails</span>()
+    .<span class='ident'>prints_error_exactly</span>(<span class='string'>&quot;cat: non-exisiting-file: No such file or directory&quot;</span>)
+    .<span class='ident'>unwrap</span>();</pre>
+</div><h4 id='method.execute' class='method'><span id='execute.v' class='invisible'><code>fn <a href='#method.execute' class='fnname'>execute</a>(self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>, Error&gt;</code></span></h4>
+<div class='docblock'><p>Execute the command and check the assertions</p>
+
+<h1 id='examples-10' class='section-header'><a href='#examples-10'>Examples</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>assert_cli</span>;
+
+<span class='kw'>let</span> <span class='ident'>test</span> <span class='op'>=</span> <span class='ident'>assert_cli</span>::<span class='ident'>Assert</span>::<span class='ident'>command</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;echo&quot;</span>, <span class='string'>&quot;42&quot;</span>])
+    .<span class='ident'>succeeds</span>()
+    .<span class='ident'>execute</span>();
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>test</span>.<span class='ident'>is_ok</span>());</pre>
+</div><h4 id='method.unwrap' class='method'><span id='unwrap.v' class='invisible'><code>fn <a href='#method.unwrap' class='fnname'>unwrap</a>(self)</code></span></h4>
+<div class='docblock'><p>Execute the command, check the assertions, and panic when they fail</p>
+
+<h1 id='examples-11' class='section-header'><a href='#examples-11'>Examples</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>assert_cli</span>;
+
+<span class='ident'>assert_cli</span>::<span class='ident'>Assert</span>::<span class='ident'>command</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;echo&quot;</span>, <span class='string'>&quot;42&quot;</span>])
+    .<span class='ident'>fails</span>()
+    .<span class='ident'>unwrap</span>(); <span class='comment'>// panics</span></pre>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../assert_cli/struct.Assert.html' title='assert_cli::Assert'>Assert</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/assert_cli/lib.rs.html#78' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.fmt' class='method'><span id='fmt.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></span></h4>
+<div class='docblock'><p>Formats the value using the given formatter.</p>
+</div></div><h3 class='impl'><span class='in-band'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/default/trait.Default.html' title='core::default::Default'>Default</a> for <a class='struct' href='../assert_cli/struct.Assert.html' title='assert_cli::Assert'>Assert</a></code></span><span class='out-of-band'><div class='ghost'></div><a class='srclink' href='../src/assert_cli/lib.rs.html#89-103' title='goto source code'>[src]</a></span></h3>
+<div class='impl-items'><h4 id='method.default' class='method'><span id='default.v' class='invisible'><code>fn <a href='https://doc.rust-lang.org/nightly/core/default/trait.Default.html#tymethod.default' class='fnname'>default</a>() -&gt; Self</code></span></h4>
+<div class='docblock'><p>Construct an assert using <code>cargo run --</code> as command.</p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "assert_cli";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>

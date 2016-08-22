@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `assert_cli` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, assert_cli">
+
+    <title>assert_cli - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../normalize.css">
+    <link rel="stylesheet" type="text/css" href="../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../main.css">
+    
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'></p><script>window.sidebarCurrent = {name: 'assert_cli', ty: 'mod', relpath: '../'};</script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Crate <a class='mod' href=''>assert_cli</a></span><span class='out-of-band'><span id='render-detail'>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a class='srclink' href='../src/assert_cli/lib.rs.html#1-419' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'>
+<h1 id='test-cli-applications' class='section-header'><a href='#test-cli-applications'>Test CLI Applications</a></h1>
+<p>This crate&#39;s goal is to provide you some very easy tools to test your CLI
+applications. It can currently execute child processes and validate their
+exit status as well as stdout output against your assertions.</p>
+
+<h2 id='examples' class='section-header'><a href='#examples'>Examples</a></h2>
+<p>Here&#39;s a trivial example:</p>
+
+<pre class='rust rust-example-rendered'>
+<span class='ident'>assert_cli</span>::<span class='ident'>Assert</span>::<span class='ident'>command</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;echo&quot;</span>, <span class='string'>&quot;42&quot;</span>])
+    .<span class='ident'>succeeds</span>()
+    .<span class='ident'>and</span>().<span class='ident'>prints</span>(<span class='string'>&quot;42&quot;</span>)
+    .<span class='ident'>unwrap</span>();</pre>
+
+<p>And here is one that will fail:</p>
+
+<pre class='rust rust-example-rendered'>
+<span class='ident'>assert_cli</span>::<span class='ident'>Assert</span>::<span class='ident'>command</span>(<span class='kw-2'>&amp;</span>[<span class='string'>&quot;echo&quot;</span>, <span class='string'>&quot;42&quot;</span>])
+    .<span class='ident'>prints</span>(<span class='string'>&quot;1337&quot;</span>)
+    .<span class='ident'>unwrap</span>();</pre>
+
+<p>this will show a nice, colorful diff in your terminal, like this:</p>
+
+<pre><code class="language-diff">-1337
++42
+</code></pre>
+
+<p>If you are testing a Rust binary crate, you can start with
+<code>Assert::main_binary()</code> to use <code>cargo run</code> as command. Or, if you want to
+run a specific binary (if you have more than one), use
+<code>Assert::cargo_binary</code>.</p>
+
+<p>Alternatively, you can use the <code>assert_cmd!</code> macro to construct the command:</p>
+
+<pre class='rust rust-example-rendered'>
+<span class='attribute'>#[<span class='ident'>macro_use</span>]</span> <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>assert_cli</span>;
+
+<span class='macro'>assert_cmd</span><span class='macro'>!</span>(<span class='ident'>echo</span> <span class='number'>42</span>).<span class='ident'>succeeds</span>().<span class='ident'>prints</span>(<span class='string'>&quot;42&quot;</span>).<span class='ident'>unwrap</span>();</pre>
+
+<p>(Make sure to include the crate as <code>#[macro_use] extern crate assert_cli;</code>!)</p>
+
+<p>If you don&#39;t want it to panic when the assertions are not met, simply call
+<code>.execute</code> instead of <code>.unwrap</code> to get a <code>Result</code>:</p>
+
+<pre class='rust rust-example-rendered'>
+<span class='attribute'>#[<span class='ident'>macro_use</span>]</span> <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>assert_cli</span>;
+
+<span class='kw'>let</span> <span class='ident'>x</span> <span class='op'>=</span> <span class='macro'>assert_cmd</span><span class='macro'>!</span>(<span class='ident'>echo</span> <span class='number'>1337</span>).<span class='ident'>prints_exactly</span>(<span class='string'>&quot;42&quot;</span>).<span class='ident'>execute</span>();
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>x</span>.<span class='ident'>is_err</span>());</pre>
+</div><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class='macro' href='macro.assert_cmd.html'
+                                  title='assert_cli::assert_cmd'>assert_cmd</a></td>
+                           <td class='docblock-short'>
+                                <p>Easily construct an <code>Assert</code> with a custom command</p>
+                           </td>
+                       </tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                       <tr class=' module-item'>
+                           <td><a class='struct' href='struct.Assert.html'
+                                  title='assert_cli::Assert'>Assert</a></td>
+                           <td class='docblock-short'>
+                                <p>Assertions for a specific command</p>
+                           </td>
+                       </tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                    <dt>+</dt>
+                    <dd>Collapse/expand all sections</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "assert_cli";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    <script defer src="../search-index.js"></script>
+</body>
+</html>
