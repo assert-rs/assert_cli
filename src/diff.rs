@@ -9,8 +9,8 @@ use errors::*;
 pub fn render(&Changeset { ref diffs, .. }: &Changeset) -> Result<String> {
     let mut t = String::new();
 
-    for i in 0..diffs.len() {
-        match diffs[i] {
+    for (i, diff) in diffs.iter().enumerate() {
+        match *diff {
             Difference::Same(ref x) => {
                 writeln!(t, " {}", x)?;
             }

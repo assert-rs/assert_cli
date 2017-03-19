@@ -161,7 +161,7 @@ impl Assert {
 
     /// Execute the command and check the assertions
     pub fn execute(self) -> Result<()> {
-        let ref cmd = self.cmd[0];
+        let cmd = &self.cmd[0];
         let args: Vec<_> = self.cmd.iter().skip(1).collect();
         let mut command = Command::new(cmd);
         let command = command.args(&args);
@@ -193,7 +193,7 @@ impl Assert {
                 ));
             },
             (Some(ref expected_output), false) => {
-                let differences = Changeset::new(expected_output.trim(), &stdout.trim(), "\n");
+                let differences = Changeset::new(expected_output.trim(), stdout.trim(), "\n");
                 if differences.distance > 0 {
                     let nice_diff = diff::render(&differences)?;
                     bail!(ErrorKind::ExactOutputMismatch(nice_diff));
