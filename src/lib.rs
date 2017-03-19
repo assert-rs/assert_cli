@@ -114,6 +114,16 @@ impl Assert {
     }
 
     /// Use custom command
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "1337"])
+    ///     .succeeds()
+    ///     .unwrap();
+    /// ```
     pub fn command(cmd: &[&str]) -> Self {
         Assert {
             cmd: cmd.into_iter().cloned().map(String::from).collect(),
@@ -121,24 +131,82 @@ impl Assert {
         }
     }
 
+    /// Add arguments to the command
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo"])
+    ///     .with_args(&["42"])
+    ///     .succeeds()
+    ///     .prints("42")
+    ///     .unwrap();
+    /// ```
+    pub fn with_args(mut self, args: &[&str]) -> Self {
+        self.cmd.extend(args.into_iter().cloned().map(String::from));
+        self
+    }
+
     /// Small helper to make chains more readable
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .succeeds().and().prints("42")
+    ///     .unwrap();
+    /// ```
     pub fn and(self) -> Self {
         self
     }
 
     /// Expect the command to be executed successfully
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .succeeds()
+    ///     .unwrap();
+    /// ```
     pub fn succeeds(mut self) -> Self {
         self.expect_success = true;
         self
     }
 
     /// Expect the command to fail
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["cat", "non-exisiting-file"])
+    ///     .fails()
+    ///     .unwrap();
+    /// ```
     pub fn fails(mut self) -> Self {
         self.expect_success = false;
         self
     }
 
     /// Expect the command to fail and return a specific error code
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["cat", "non-exisiting-file"])
+    ///     .fails_with(1)
+    ///     .unwrap();
+    /// ```
     pub fn fails_with(mut self, expect_exit_code: i32) -> Self {
         self.expect_success = false;
         self.expect_exit_code = Some(expect_exit_code);
@@ -146,6 +214,16 @@ impl Assert {
     }
 
     /// Expect the command's output to contain `output`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .prints("42")
+    ///     .unwrap();
+    /// ```
     pub fn prints<O: Into<String>>(mut self, output: O) -> Self {
         self.expect_output = Some(output.into());
         self.fuzzy = true;
@@ -153,6 +231,16 @@ impl Assert {
     }
 
     /// Expect the command to output exactly this `output`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .prints_exactly("42")
+    ///     .unwrap();
+    /// ```
     pub fn prints_exactly<O: Into<String>>(mut self, output: O) -> Self {
         self.expect_output = Some(output.into());
         self.fuzzy = false;
@@ -160,6 +248,17 @@ impl Assert {
     }
 
     /// Execute the command and check the assertions
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// let test = assert_cli::Assert::command(&["echo", "42"])
+    ///     .succeeds()
+    ///     .execute();
+    /// assert!(test.is_ok());
+    /// ```
     pub fn execute(self) -> Result<()> {
         let cmd = &self.cmd[0];
         let args: Vec<_> = self.cmd.iter().skip(1).collect();
@@ -206,6 +305,16 @@ impl Assert {
     }
 
     /// Execute the command, check the assertions, and panic when they fail
+    ///
+    /// # Examples
+    ///
+    /// ```rust,should_panic="Assert CLI failure"
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .fails()
+    ///     .unwrap(); // panics
+    /// ```
     pub fn unwrap(self) {
         if let Err(err) = self.execute() {
             panic!("Assert CLI failure:\n{}", err);
@@ -238,6 +347,10 @@ impl Assert {
 ///     .unwrap();
 /// # }
 /// ```
+///
+/// The macro will try to convert its arguments as strings, but is limited by
+/// Rust's default tokenizer, e.g., you always need to quote CLI arguments
+/// like `"--verbose"`.
 #[macro_export]
 macro_rules! assert_cmd {
     ($($x:tt)+) => {{
