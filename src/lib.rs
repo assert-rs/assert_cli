@@ -81,7 +81,9 @@ pub struct Assert {
     expect_success: bool,
     expect_exit_code: Option<i32>,
     expect_output: Option<String>,
-    fuzzy: bool,
+    fuzzy_output: bool,
+    expect_error_output: Option<String>,
+    fuzzy_error_output: bool,
 }
 
 impl std::default::Default for Assert {
@@ -93,7 +95,9 @@ impl std::default::Default for Assert {
             expect_success: true,
             expect_exit_code: None,
             expect_output: None,
-            fuzzy: false,
+            fuzzy_output: false,
+            expect_error_output: None,
+            fuzzy_error_output: false,
         }
     }
 }
@@ -226,7 +230,7 @@ impl Assert {
     /// ```
     pub fn prints<O: Into<String>>(mut self, output: O) -> Self {
         self.expect_output = Some(output.into());
-        self.fuzzy = true;
+        self.fuzzy_output = true;
         self
     }
 
@@ -243,7 +247,43 @@ impl Assert {
     /// ```
     pub fn prints_exactly<O: Into<String>>(mut self, output: O) -> Self {
         self.expect_output = Some(output.into());
-        self.fuzzy = false;
+        self.fuzzy_output = false;
+        self
+    }
+
+    /// Expect the command's stderr output to contain `output`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["cat", "non-exisiting-file"])
+    ///     .fails()
+    ///     .prints_error("non-exisiting-file")
+    ///     .unwrap();
+    /// ```
+    pub fn prints_error<O: Into<String>>(mut self, output: O) -> Self {
+        self.expect_error_output = Some(output.into());
+        self.fuzzy_error_output = true;
+        self
+    }
+
+    /// Expect the command to output exactly this `output` to stderr
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["cat", "non-exisiting-file"])
+    ///     .fails()
+    ///     .prints_error_exactly("cat: non-exisiting-file: No such file or directory")
+    ///     .unwrap();
+    /// ```
+    pub fn prints_error_exactly<O: Into<String>>(mut self, output: O) -> Self {
+        self.expect_error_output = Some(output.into());
+        self.fuzzy_error_output = false;
         self
     }
 
@@ -284,7 +324,7 @@ impl Assert {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        match (self.expect_output, self.fuzzy) {
+        match (self.expect_output, self.fuzzy_output) {
             (Some(ref expected_output), true) if !stdout.contains(expected_output) => {
                 bail!(ErrorKind::OutputMismatch(
                     expected_output.clone(),
@@ -296,6 +336,24 @@ impl Assert {
                 if differences.distance > 0 {
                     let nice_diff = diff::render(&differences)?;
                     bail!(ErrorKind::ExactOutputMismatch(nice_diff));
+                }
+            },
+            _ => {},
+        }
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        match (self.expect_error_output, self.fuzzy_error_output) {
+            (Some(ref expected_output), true) if !stderr.contains(expected_output) => {
+                bail!(ErrorKind::ErrorOutputMismatch(
+                    expected_output.clone(),
+                    stderr.into(),
+                ));
+            },
+            (Some(ref expected_output), false) => {
+                let differences = Changeset::new(expected_output.trim(), stderr.trim(), "\n");
+                if differences.distance > 0 {
+                    let nice_diff = diff::render(&differences)?;
+                    bail!(ErrorKind::ExactErrorOutputMismatch(nice_diff));
                 }
             },
             _ => {},

@@ -32,5 +32,17 @@ error_chain! {
             description("Output was not as expected")
             display("{}", diff)
         }
+        ErrorOutputMismatch(expected: String, got: String) {
+            description("Stderr output was not as expected")
+            display(
+                "Expected stderr output to contain\n{}\nbut could not find it in\n{}",
+                expected,
+                got,
+            )
+        }
+        ExactErrorOutputMismatch(diff: String) {
+            description("Stderr output was not as expected")
+            display("{}", diff)
+        }
     }
 }
