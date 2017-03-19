@@ -15,7 +15,7 @@ Just add it to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-assert_cli = "0.3"
+assert_cli = "0.4"
 ```
 
 ## Example
@@ -24,27 +24,46 @@ Here's a trivial example:
 
 ```rust
 extern crate assert_cli;
+
 fn main() {
-  assert_cli::assert_cli_output("echo", &["42"], "42").unwrap();
+    assert_cli::Assert::command(&["echo", "42"]).prints("42").unwrap();
 }
 ```
 
 Or if you'd rather use the macro:
 
-```rust,ignore
+```rust
 #[macro_use] extern crate assert_cli;
+
 fn main() {
-  assert_cli!("echo", &["42"] => Success, "42").unwrap();
-  assert_cli!("black-box", &["--special"] => Error 42, "error no 42\n").unwrap()
+    assert_cmd!(echo 42).succeeds().and().prints("42").unwrap();
 }
 ```
 
-And here is one that will fail:
+And here is one that will fail (which also shows `execute` which returns a
+`Result` and can be used instead of `unwrap`):
 
-```rust,should_panic
-extern crate assert_cli;
+```rust
+#[macro_use] extern crate assert_cli;
+
 fn main() {
-  assert_cli::assert_cli_output("echo", &["42"], "1337").unwrap();
+    let test = assert_cmd!(grep amet Cargo.toml)
+        .fails_with(1)
+        .execute();
+    assert!(test.is_err());
+}
+```
+
+If you want to check for the program's output, you can use `print` or
+`print_exactly`:
+
+```rust,should_panic="Assert CLI failure"
+#[macro_use] extern crate assert_cli;
+
+fn main() {
+    assert_cmd!("wc" "README.md")
+        .prints_exactly("1337 README.md")
+        .unwrap();
 }
 ```
 
@@ -52,29 +71,7 @@ this will show a nice, colorful diff in your terminal, like this:
 
 ```diff
 -1337
-+42
-```
-
-If you'd prefer to not check the output:
-
-```rust
-#[macro_use] extern crate assert_cli;
-fn main() {
-  assert_cli::assert_cli("echo", &["42"]).unwrap();
-  assert_cli!("echo", &["42"] => Success).unwrap();
-}
-```
-
-All exported functions and the macro return a `Result` containing the
-`Output` of the process, allowing you to do further custom assertions:
-
-```rust
-#[macro_use] extern crate assert_cli;
-fn main() {
-  let output = assert_cli!("echo", &["Number 42"] => Success).unwrap();
-  let stdout = std::str::from_utf8(&output.stdout).unwrap();
-  assert!(stdout.contains("42"));
-}
++92
 ```
 
 ## License

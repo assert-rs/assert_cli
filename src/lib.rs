@@ -1,3 +1,67 @@
+//! # Test CLI Applications
+//!
+//! This crate's goal is to provide you some very easy tools to test your CLI
+//! applications. It can currently execute child processes and validate their
+//! exit status as well as stdout output against your assertions.
+//!
+//! ## Examples
+//!
+//! Here's a trivial example:
+//!
+//! ```rust extern crate assert_cli;
+//!
+//! assert_cli::Assert::command(&["echo", "42"])
+//!     .succeeds()
+//!     .and().prints("42")
+//!     .unwrap();
+//! ```
+//!
+//! And here is one that will fail:
+//!
+//! ```rust,should_panic
+//! assert_cli::Assert::command(&["echo", "42"])
+//!     .prints("1337")
+//!     .unwrap();
+//! ```
+//!
+//! this will show a nice, colorful diff in your terminal, like this:
+//!
+//! ```diff
+//! -1337
+//! +42
+//! ```
+//!
+//! If you are testing a Rust binary crate, you can start with
+//! `Assert::main_binary()` to use `cargo run` as command. Or, if you want to
+//! run a specific binary (if you have more than one), use
+//! `Assert::cargo_binary`.
+//!
+//! Alternatively, you can use the `assert_cmd!` macro to construct the command:
+//!
+//! ```rust
+//! #[macro_use] extern crate assert_cli;
+//!
+//! # fn main() {
+//! assert_cmd!(echo 42).succeeds().prints("42").unwrap();
+//! # }
+//! ```
+//!
+//! (Make sure to include the crate as `#[macro_use] extern crate assert_cli;`!)
+//!
+//! If you don't want it to panic when the assertions are not met, simply call
+//! `.execute` instead of `.unwrap` to get a `Result`:
+//!
+//! ```rust
+//! #[macro_use] extern crate assert_cli;
+//!
+//! # fn main() {
+//! let x = assert_cmd!(echo 1337).prints_exactly("42").execute();
+//! assert!(x.is_err());
+//! # }
+//! ```
+
+#![deny(warnings, missing_docs)]
+
 extern crate difference;
 #[macro_use] extern crate error_chain;
 
@@ -24,7 +88,8 @@ impl std::default::Default for Assert {
     /// Construct an assert using `cargo run --` as command.
     fn default() -> Self {
         Assert {
-            cmd: vec!["cargo", "run", "--"].into_iter().map(String::from).collect(),
+            cmd: vec!["cargo", "run", "--"]
+                .into_iter().map(String::from).collect(),
             expect_success: true,
             expect_exit_code: None,
             expect_output: None,
@@ -37,6 +102,15 @@ impl Assert {
     /// Use the crate's main binary as command
     pub fn main_binary() -> Self {
         Assert::default()
+    }
+
+    /// Use the crate's main binary as command
+    pub fn cargo_binary(name: &str) -> Self {
+        Assert {
+            cmd: vec!["cargo", "run", "--bin", name, "--"]
+                .into_iter().map(String::from).collect(),
+            ..Self::default()
+        }
     }
 
     /// Use custom command
@@ -93,38 +167,36 @@ impl Assert {
         let command = command.args(&args);
         let output = command.output()?;
 
+
         if self.expect_success != output.status.success() {
-            bail!("Command {:?} {} but expected it to {}",
-                self.cmd,
-                if output.status.success() { "succeeded" } else { "failed" },
-                if self.expect_success { "succeed" } else { "fail" },
-            );
+            bail!(ErrorKind::StatusMismatch(
+                self.cmd.clone(),
+                self.expect_success.clone(),
+            ));
         }
 
         if self.expect_exit_code.is_some() &&
             self.expect_exit_code != output.status.code() {
-            bail!("Command {:?} exited with code {:?} but expected it to be {:?}",
-                self.cmd,
-                output.status.code(),
+            bail!(ErrorKind::ExitCodeMismatch(
+                self.cmd.clone(),
                 self.expect_exit_code,
-            );
+                output.status.code(),
+            ));
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         match (self.expect_output, self.fuzzy) {
             (Some(ref expected_output), true) if !stdout.contains(expected_output) => {
-                bail!("Expected output to contain\n{}\n\
-                    but could not find it in\n{}",
-                    expected_output,
-                    stdout,
-                )
+                bail!(ErrorKind::OutputMismatch(
+                    expected_output.clone(),
+                    stdout.into(),
+                ));
             },
             (Some(ref expected_output), false) => {
                 let differences = Changeset::new(expected_output.trim(), &stdout.trim(), "\n");
                 if differences.distance > 0 {
-                    bail!("Output was not as expected:\n{}",
-                        diff::render(differences)?,
-                    );
+                    let nice_diff = diff::render(&differences)?;
+                    bail!(ErrorKind::ExactOutputMismatch(nice_diff));
                 }
             },
             _ => {},
@@ -132,4 +204,45 @@ impl Assert {
 
         Ok(())
     }
+
+    /// Execute the command, check the assertions, and panic when they fail
+    pub fn unwrap(self) {
+        if let Err(err) = self.execute() {
+            panic!("Assert CLI failure:\n{}", err);
+        }
+    }
+}
+
+/// Easily construct an `Assert` with a custom command
+///
+/// Make sure to include the crate as `#[macro_use] extern crate assert_cli;` if
+/// you want to use this macro.
+///
+/// # Examples
+///
+/// To test that our very complex cli applications succeeds and prints some
+/// text to stdout that contains
+///
+/// ```plain
+/// No errors whatsoever
+/// ```
+///
+/// you would call it like this:
+///
+/// ```rust
+/// #[macro_use] extern crate assert_cli;
+/// # fn main() {
+/// assert_cmd!(echo "Launch sequence initiated.\nNo errors whatsoever!\n")
+///     .succeeds()
+///     .prints("No errors whatsoever")
+///     .unwrap();
+/// # }
+/// ```
+#[macro_export]
+macro_rules! assert_cmd {
+    ($($x:tt)+) => {{
+        $crate::Assert::command(
+            &[$(stringify!($x)),*]
+        )
+    }}
 }
