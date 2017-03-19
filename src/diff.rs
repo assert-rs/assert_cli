@@ -1,27 +1,46 @@
-use std::fmt;
+extern crate colored;
+use self::colored::Colorize;
 
-use difference::Difference;
-use ansi_term::Colour::{Green, Red};
+use difference::{Difference, Changeset};
+use std::fmt::Write;
 
-pub fn render(changeset: &[Difference]) -> Result<String, fmt::Error> {
-    use std::fmt::Write;
+use errors::*;
 
+pub fn render(Changeset { diffs, .. }: Changeset) -> Result<String> {
     let mut t = String::new();
 
-    for change in changeset {
-        match *change {
+    for i in 0..diffs.len() {
+        match diffs[i] {
             Difference::Same(ref x) => {
-                for line in x.lines() {
-                    try!(writeln!(t, " {}", line));
-                }
+                writeln!(t, " {}", x)?;
             }
             Difference::Add(ref x) => {
-                try!(write!(t, "{}", Green.paint("+")));
-                try!(writeln!(t, "{}", Green.paint(x)));
+                match diffs[i - 1] {
+                    Difference::Rem(ref y) => {
+                        write!(t, "{}", "+".green())?;
+                        let Changeset { diffs, .. } = Changeset::new(y, x, " ");
+                        for c in diffs {
+                            match c {
+                                Difference::Same(ref z) => {
+                                    write!(t, "{}", z.green())?;
+                                    write!(t, " ")?;
+                                }
+                                Difference::Add(ref z) => {
+                                    write!(t, "{}", z.white().on_green())?;
+                                    write!(t, " ")?;
+                                }
+                                _ => (),
+                            }
+                        }
+                        writeln!(t, "")?;
+                    }
+                    _ => {
+                        writeln!(t, "{}", format!("+{}", x).green().dimmed())?;
+                    }
+                };
             }
             Difference::Rem(ref x) => {
-                try!(write!(t, "{}", Red.paint("-")));
-                try!(writeln!(t, "{}", Red.paint(x)));
+                writeln!(t, "{}", format!("-{}", x).red())?;
             }
         }
     }

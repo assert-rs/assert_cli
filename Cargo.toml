@@ -15,9 +15,10 @@ default = []
 dev = ["clippy"]
 
 [dependencies]
-ansi_term = "0.6.3"
-difference = "0.4.0"
-clippy = {version = "0.0.23", optional = true}
+colored = "1.4"
+difference = "1.0"
+error-chain = "0.10.0"
+clippy = {version = "*", optional = true}
 
 [build-dependencies]
 skeptic = "0.5"
