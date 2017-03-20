@@ -1,12 +1,17 @@
 sudo: false
 language: rust
+cache: cargo
 rust:
-- nightly
 - beta
 - stable
+- nightly
 matrix:
-  allow_failures:
-  - rust: nightly
+  include:
+  - rust: nightly-2017-03-15
+    env: CLIPPY=YESPLEASE
+    script: |
+        cargo install clippy --vers "0.0.120"
+        cargo clippy
 before_script:
 - |
   pip install 'travis-cargo<0.2' --user &&
@@ -16,14 +21,6 @@ script:
   travis-cargo build &&
   travis-cargo test &&
   travis-cargo bench
-addons:
-  apt:
-    packages:
-    - libcurl4-openssl-dev
-    - libelf-dev
-    - libdw-dev
-after_success:
-- travis-cargo coveralls --no-sudo
 notifications:
   email:
     on_success: never
@@ -32,5 +29,5 @@ branches:
     - master
 env:
   global:
-  - TRAVIS_CARGO_NIGHTLY_FEATURE=
+  - TRAVIS_CARGO_NIGHTLY_FEATURE=""
   - secure: OUHDuY7h82pYkis1oJW/dO029Rp/HLGT7od5VQJ1eki0M+Oawj7L0tjQPGLKLjj6hA1Sh8XeeelQgrlwVQfkrvwgYLRfmEdbP8z2PclmbxvXmRFysM5R9dN15HYx9AlUsDiHF9otmkNzJPBghlLvvKbzjp7Mlr5cdBaFZ9psafJLOgIWTIpiuHvYhmKhaXG6bIpLw6pi9NWdUYcd5s/gy1n1v5a4oPH/JB9V3Zc8+tv/EPvRynzSRK1jghD7KtppQoRRt92OCQGZ2BYLoTVpkt/bPS50D558xbVoDPyNNgcPM86eSSNbgp8llASJMFVNWWBZYLmbQ5x/219G907YbKWDLbcwMJL0H/JFbtErLarDU5XiEFBELs0Zx2t0S96xOM+ZWxZvWBk3UuKTBaXIKc921JEU+uHHUsPp3zasiMZWN3Rv2ia68HZGvYtwAPG5PWJTeh7BAo6dLGNDISVE/uHhf64E+ZvH3ToEmadx/yimedE7IOBh7kvPTnr1X5RFWNEJYOVSWJ531LoE3WHO9/UKPRLx01fGHzJKXMyWcp2fQjwCsu9zwThk3N4kYQJfi5YNmJw1EiOERiQ0nRckaUC5sA5KE+ZJmEa4ztfe7RMTVceCNagVdsqH8IHWgM+ROKNNKYDjqKbGSiE0RVwUdITUFLeQDWzQYfzsWRQpFV0=
