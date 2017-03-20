@@ -1,13 +1,15 @@
 [package]
 name = "assert_cli"
 version = "0.4.0"
+description = "Test CLI Applications."
 authors = ["Pascal Hertleif <killercup@gmail.com>"]
+license = "MIT OR Apache-2.0"
 repository = "https://github.com/killercup/assert_cli.git"
 homepage = "https://github.com/killercup/assert_cli"
-license = "MIT OR Apache-2.0"
-readme = "README.md"
 documentation = "http://killercup.github.io/assert_cli/"
-description = "Test CLI Applications."
+readme = "README.md"
+categories = ["development-tools::testing"]
+keywords = ["cli", "testing"]
 build = "build.rs"
 
 [dependencies]
@@ -20,3 +22,6 @@ skeptic = "0.5"
 
 [dev-dependencies]
 skeptic = "0.5"
+
+[badges]
+travis-ci = { repository = "killercup/assert_cli" }
