@@ -1,6 +1,6 @@
 [package]
 name = "assert_cli"
-version = "0.3.0"
+version = "0.4.0"
 authors = ["Pascal Hertleif <killercup@gmail.com>"]
 repository = "https://github.com/killercup/assert_cli.git"
 homepage = "https://github.com/killercup/assert_cli"
@@ -10,14 +10,10 @@ documentation = "http://killercup.github.io/assert_cli/"
 description = "Test CLI Applications."
 build = "build.rs"
 
-[features]
-default = []
-dev = ["clippy"]
-
 [dependencies]
-ansi_term = "0.6.3"
-difference = "0.4.0"
-clippy = {version = "0.0.23", optional = true}
+colored = "1.4"
+difference = "1.0"
+error-chain = "0.10.0"
 
 [build-dependencies]
 skeptic = "0.5"

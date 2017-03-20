@@ -1,22 +1,27 @@
 //! # Test CLI Applications
 //!
-//! Currently, this crate only includes basic functionality to check the output of a child process
-//! is as expected.
+//! This crate's goal is to provide you some very easy tools to test your CLI
+//! applications. It can currently execute child processes and validate their
+//! exit status as well as stdout output against your assertions.
 //!
-//! ## Example
+//! ## Examples
 //!
 //! Here's a trivial example:
 //!
-//! ```rust
-//! # extern crate assert_cli;
+//! ```rust extern crate assert_cli;
 //!
-//! assert_cli::assert_cli_output("echo", &["42"], "42").unwrap();
+//! assert_cli::Assert::command(&["echo", "42"])
+//!     .succeeds()
+//!     .and().prints("42")
+//!     .unwrap();
 //! ```
 //!
 //! And here is one that will fail:
 //!
 //! ```rust,should_panic
-//! assert_cli::assert_cli_output("echo", &["42"], "1337").unwrap();
+//! assert_cli::Assert::command(&["echo", "42"])
+//!     .prints("1337")
+//!     .unwrap();
 //! ```
 //!
 //! this will show a nice, colorful diff in your terminal, like this:
@@ -26,273 +31,389 @@
 //! +42
 //! ```
 //!
-//! Alternatively, you can use the `assert_cli!` macro:
+//! If you are testing a Rust binary crate, you can start with
+//! `Assert::main_binary()` to use `cargo run` as command. Or, if you want to
+//! run a specific binary (if you have more than one), use
+//! `Assert::cargo_binary`.
+//!
+//! Alternatively, you can use the `assert_cmd!` macro to construct the command:
 //!
 //! ```rust
-//! # #[macro_use] extern crate assert_cli;
+//! #[macro_use] extern crate assert_cli;
+//!
 //! # fn main() {
-//! assert_cli!("echo", &["42"] => Success, "42").unwrap();
+//! assert_cmd!(echo 42).succeeds().prints("42").unwrap();
 //! # }
 //! ```
 //!
-//! All exported functions and the macro return a `Result` containing the
-//! `Output` of the process, allowing you to do further custom assertions:
+//! (Make sure to include the crate as `#[macro_use] extern crate assert_cli;`!)
+//!
+//! If you don't want it to panic when the assertions are not met, simply call
+//! `.execute` instead of `.unwrap` to get a `Result`:
 //!
 //! ```rust
-//! # #[macro_use] extern crate assert_cli;
+//! #[macro_use] extern crate assert_cli;
+//!
 //! # fn main() {
-//! let output = assert_cli!("echo", &["Number 42"] => Success).unwrap();
-//! let stdout = std::str::from_utf8(&output.stdout).unwrap();
-//! assert!(stdout.contains("42"));
+//! let x = assert_cmd!(echo 1337).prints_exactly("42").execute();
+//! assert!(x.is_err());
 //! # }
 //! ```
-//!
-//! Make sure to include the crate as `#[macro_use] extern crate assert_cli;`.
 
+#![deny(warnings, missing_docs)]
 
-#![cfg_attr(feature = "dev", feature(plugin))]
-#![cfg_attr(feature = "dev", plugin(clippy))]
-
-#![deny(missing_docs)]
-
-extern crate ansi_term;
 extern crate difference;
+#[macro_use] extern crate error_chain;
 
-use std::process::{Command, Output};
-use std::error::Error;
-use std::ffi::OsStr;
+use std::process::Command;
 
-mod cli_error;
+use difference::Changeset;
+
+mod errors;
+use errors::*;
+
 mod diff;
 
-use cli_error::CliError;
-
-
-/// Assert a CLI call
-///
-/// To test that
-///
-/// ```sh
-/// bash -c $BLACK_BOX
-/// ```
-///
-/// exits with the correct exit value. You would call it like this:
-///
-/// ```rust
-/// # extern crate assert_cli;
-/// # const BLACK_BOX: &'static str = r#"function test_helper() {\
-/// # echo "Launch sequence initiated."; return 0; }; test_helper"#;
-/// assert_cli::assert_cli("bash", &["-c", BLACK_BOX]);
-/// ```
-pub fn assert_cli<S>(cmd: &str, args: &[S]) -> Result<Output, Box<Error>>
-    where S: AsRef<OsStr>
-{
-    let call: Result<Output, Box<Error>> = Command::new(cmd)
-                                               .args(args)
-                                               .output()
-                                               .map_err(From::from);
-
-    call.and_then(|output| {
-            if !output.status.success() {
-                return Err(From::from(CliError::WrongExitCode(output)));
-            }
-
-            Ok(output)
-        })
-        .map_err(From::from)
+/// Assertions for a specific command
+#[derive(Debug)]
+pub struct Assert {
+    cmd: Vec<String>,
+    expect_success: bool,
+    expect_exit_code: Option<i32>,
+    expect_output: Option<String>,
+    fuzzy_output: bool,
+    expect_error_output: Option<String>,
+    fuzzy_error_output: bool,
 }
 
+impl std::default::Default for Assert {
+    /// Construct an assert using `cargo run --` as command.
+    fn default() -> Self {
+        Assert {
+            cmd: vec!["cargo", "run", "--"]
+                .into_iter().map(String::from).collect(),
+            expect_success: true,
+            expect_exit_code: None,
+            expect_output: None,
+            fuzzy_output: false,
+            expect_error_output: None,
+            fuzzy_error_output: false,
+        }
+    }
+}
 
-/// Assert a CLI call returns the expected output.
+impl Assert {
+    /// Use the crate's main binary as command
+    pub fn main_binary() -> Self {
+        Assert::default()
+    }
+
+    /// Use the crate's main binary as command
+    pub fn cargo_binary(name: &str) -> Self {
+        Assert {
+            cmd: vec!["cargo", "run", "--bin", name, "--"]
+                .into_iter().map(String::from).collect(),
+            ..Self::default()
+        }
+    }
+
+    /// Use custom command
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "1337"])
+    ///     .succeeds()
+    ///     .unwrap();
+    /// ```
+    pub fn command(cmd: &[&str]) -> Self {
+        Assert {
+            cmd: cmd.into_iter().cloned().map(String::from).collect(),
+            ..Self::default()
+        }
+    }
+
+    /// Add arguments to the command
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo"])
+    ///     .with_args(&["42"])
+    ///     .succeeds()
+    ///     .prints("42")
+    ///     .unwrap();
+    /// ```
+    pub fn with_args(mut self, args: &[&str]) -> Self {
+        self.cmd.extend(args.into_iter().cloned().map(String::from));
+        self
+    }
+
+    /// Small helper to make chains more readable
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .succeeds().and().prints("42")
+    ///     .unwrap();
+    /// ```
+    pub fn and(self) -> Self {
+        self
+    }
+
+    /// Expect the command to be executed successfully
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .succeeds()
+    ///     .unwrap();
+    /// ```
+    pub fn succeeds(mut self) -> Self {
+        self.expect_success = true;
+        self
+    }
+
+    /// Expect the command to fail
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["cat", "non-exisiting-file"])
+    ///     .fails()
+    ///     .unwrap();
+    /// ```
+    pub fn fails(mut self) -> Self {
+        self.expect_success = false;
+        self
+    }
+
+    /// Expect the command to fail and return a specific error code
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["cat", "non-exisiting-file"])
+    ///     .fails_with(1)
+    ///     .unwrap();
+    /// ```
+    pub fn fails_with(mut self, expect_exit_code: i32) -> Self {
+        self.expect_success = false;
+        self.expect_exit_code = Some(expect_exit_code);
+        self
+    }
+
+    /// Expect the command's output to contain `output`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .prints("42")
+    ///     .unwrap();
+    /// ```
+    pub fn prints<O: Into<String>>(mut self, output: O) -> Self {
+        self.expect_output = Some(output.into());
+        self.fuzzy_output = true;
+        self
+    }
+
+    /// Expect the command to output exactly this `output`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .prints_exactly("42")
+    ///     .unwrap();
+    /// ```
+    pub fn prints_exactly<O: Into<String>>(mut self, output: O) -> Self {
+        self.expect_output = Some(output.into());
+        self.fuzzy_output = false;
+        self
+    }
+
+    /// Expect the command's stderr output to contain `output`
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["cat", "non-exisiting-file"])
+    ///     .fails()
+    ///     .prints_error("non-exisiting-file")
+    ///     .unwrap();
+    /// ```
+    pub fn prints_error<O: Into<String>>(mut self, output: O) -> Self {
+        self.expect_error_output = Some(output.into());
+        self.fuzzy_error_output = true;
+        self
+    }
+
+    /// Expect the command to output exactly this `output` to stderr
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["cat", "non-exisiting-file"])
+    ///     .fails()
+    ///     .prints_error_exactly("cat: non-exisiting-file: No such file or directory")
+    ///     .unwrap();
+    /// ```
+    pub fn prints_error_exactly<O: Into<String>>(mut self, output: O) -> Self {
+        self.expect_error_output = Some(output.into());
+        self.fuzzy_error_output = false;
+        self
+    }
+
+    /// Execute the command and check the assertions
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// let test = assert_cli::Assert::command(&["echo", "42"])
+    ///     .succeeds()
+    ///     .execute();
+    /// assert!(test.is_ok());
+    /// ```
+    pub fn execute(self) -> Result<()> {
+        let cmd = &self.cmd[0];
+        let args: Vec<_> = self.cmd.iter().skip(1).collect();
+        let mut command = Command::new(cmd);
+        let command = command.args(&args);
+        let output = command.output()?;
+
+
+        if self.expect_success != output.status.success() {
+            bail!(ErrorKind::StatusMismatch(
+                self.cmd.clone(),
+                self.expect_success.clone(),
+            ));
+        }
+
+        if self.expect_exit_code.is_some() &&
+            self.expect_exit_code != output.status.code() {
+            bail!(ErrorKind::ExitCodeMismatch(
+                self.cmd.clone(),
+                self.expect_exit_code,
+                output.status.code(),
+            ));
+        }
+
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        match (self.expect_output, self.fuzzy_output) {
+            (Some(ref expected_output), true) if !stdout.contains(expected_output) => {
+                bail!(ErrorKind::OutputMismatch(
+                    expected_output.clone(),
+                    stdout.into(),
+                ));
+            },
+            (Some(ref expected_output), false) => {
+                let differences = Changeset::new(expected_output.trim(), stdout.trim(), "\n");
+                if differences.distance > 0 {
+                    let nice_diff = diff::render(&differences)?;
+                    bail!(ErrorKind::ExactOutputMismatch(nice_diff));
+                }
+            },
+            _ => {},
+        }
+
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        match (self.expect_error_output, self.fuzzy_error_output) {
+            (Some(ref expected_output), true) if !stderr.contains(expected_output) => {
+                bail!(ErrorKind::ErrorOutputMismatch(
+                    expected_output.clone(),
+                    stderr.into(),
+                ));
+            },
+            (Some(ref expected_output), false) => {
+                let differences = Changeset::new(expected_output.trim(), stderr.trim(), "\n");
+                if differences.distance > 0 {
+                    let nice_diff = diff::render(&differences)?;
+                    bail!(ErrorKind::ExactErrorOutputMismatch(nice_diff));
+                }
+            },
+            _ => {},
+        }
+
+        Ok(())
+    }
+
+    /// Execute the command, check the assertions, and panic when they fail
+    ///
+    /// # Examples
+    ///
+    /// ```rust,should_panic="Assert CLI failure"
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .fails()
+    ///     .unwrap(); // panics
+    /// ```
+    pub fn unwrap(self) {
+        if let Err(err) = self.execute() {
+            panic!("Assert CLI failure:\n{}", err);
+        }
+    }
+}
+
+/// Easily construct an `Assert` with a custom command
 ///
-/// To test that
+/// Make sure to include the crate as `#[macro_use] extern crate assert_cli;` if
+/// you want to use this macro.
 ///
-/// ```sh
-/// bash -c $BLACK_BOX
-/// ```
+/// # Examples
 ///
-/// returns
+/// To test that our very complex cli applications succeeds and prints some
+/// text to stdout that contains
 ///
 /// ```plain
-/// Launch sequence initiated.
+/// No errors whatsoever
 /// ```
 ///
 /// you would call it like this:
-///
-/// ```rust
-/// # extern crate assert_cli;
-/// # const BLACK_BOX: &'static str = r#"function test_helper() {\
-/// # echo "Launch sequence initiated."; return 0; }; test_helper"#;
-/// assert_cli::assert_cli_output("bash", &["-c", BLACK_BOX], "Launch sequence initiated.");
-/// ```
-pub fn assert_cli_output<S>(cmd: &str, args: &[S], expected_output: &str) -> Result<Output, Box<Error>>
-    where S: AsRef<OsStr>
-{
-    let call: Result<Output, Box<Error>> = Command::new(cmd)
-                                               .args(args)
-                                               .output()
-                                               .map_err(From::from);
-
-    call.and_then(|output| {
-            if !output.status.success() {
-                return Err(From::from(CliError::WrongExitCode(output)));
-            }
-
-            {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                let (distance, changes) = difference::diff(expected_output.trim(),
-                                                           &stdout.trim(),
-                                                           "\n");
-                if distance > 0 {
-                    return Err(From::from(CliError::OutputMissmatch(changes)));
-                }
-            }
-
-            Ok(output)
-        })
-        .map_err(From::from)
-}
-
-/// Assert a CLI call that fails with a given error code.
-///
-/// To test that
-///
-/// ```sh
-/// bash -c $BLACK_BOX
-/// ```
-///
-/// fails with an exit code of `42`.
-///
-/// you would call it like this:
-///
-/// ```rust
-/// # extern crate assert_cli;
-/// # const BLACK_BOX: &'static str = r#"function test_helper() {\
-/// # >&2 echo "error no 42!"; return 42; }; test_helper"#;
-/// assert_cli::assert_cli_error("bash", &["-c", BLACK_BOX], Some(42));
-/// ```
-pub fn assert_cli_error<S>(cmd: &str,
-                                  args: &[S],
-                                  error_code: Option<i32>)
-                                  -> Result<Output, Box<Error>>
-    where S: AsRef<OsStr>
-{
-    let call: Result<Output, Box<Error>> = Command::new(cmd)
-                                               .args(args)
-                                               .output()
-                                               .map_err(From::from);
-
-    call.and_then(|output| {
-            if output.status.success() {
-                return Err(From::from(CliError::WrongExitCode(output)));
-            }
-
-            match (error_code, output.status.code()) {
-                (Some(a), Some(b)) if a != b =>
-                    return Err(From::from(CliError::WrongExitCode(output))),
-                _ => {}
-            }
-
-            Ok(output)
-        })
-        .map_err(From::from)
-}
-
-/// Assert a CLI call that fails the expected `stderr` output and error code.
-///
-/// To test that
-///
-/// ```sh
-/// bash -c $BLACK_BOX
-/// ```
-///
-/// fails with an exit code of `42` after printing this to `stderr`
-///
-/// ```plain
-/// error no 42!
-/// ```
-///
-/// you would call it like this:
-///
-/// ```rust
-/// # extern crate assert_cli;
-/// # const BLACK_BOX: &'static str = r#"function test_helper() {\
-/// # >&2 echo "error no 42!"; return 42; }; test_helper"#;
-/// assert_cli::assert_cli_output_error("bash", &["-c", BLACK_BOX], Some(42), "error no 42!");
-/// ```
-pub fn assert_cli_output_error<S>(cmd: &str,
-                                  args: &[S],
-                                  error_code: Option<i32>,
-                                  expected_output: &str)
-                                  -> Result<Output, Box<Error>>
-    where S: AsRef<OsStr>
-{
-    let call: Result<Output, Box<Error>> = Command::new(cmd)
-                                               .args(args)
-                                               .output()
-                                               .map_err(From::from);
-
-    call.and_then(|output| {
-            if output.status.success() {
-                return Err(From::from(CliError::WrongExitCode(output)));
-            }
-
-            match (error_code, output.status.code()) {
-                (Some(a), Some(b)) if a != b =>
-                    return Err(From::from(CliError::WrongExitCode(output))),
-                _ => {}
-            }
-
-            {
-                let stdout = String::from_utf8_lossy(&output.stderr);
-                let (distance, changes) = difference::diff(expected_output.trim(),
-                                                           &stdout.trim(),
-                                                           "\n");
-                if distance > 0 {
-                    return Err(From::from(CliError::OutputMissmatch(changes)));
-                }
-            }
-
-            Ok(output)
-        })
-        .map_err(From::from)
-}
-
-/// The `assert_cli!` macro combines the functionality of the other functions in this crate in one
-/// short macro.
 ///
 /// ```rust
 /// #[macro_use] extern crate assert_cli;
-/// # const BLACK_BOX: &'static str = r#"function test_helper() {\
-/// # >&2 echo "error no 66!"; return 66; }; test_helper"#;
-///
-/// fn main() {
-///     assert_cli!("true", &[""] => Success).unwrap();
-///     assert_cli!("echo", &["42"] => Success, "42").unwrap();
-///     assert_cli!("bash", &["-c", BLACK_BOX] => Error 66).unwrap();
-///     assert_cli!("bash", &["-c", BLACK_BOX] => Error 66, "error no 66!").unwrap();
-/// }
+/// # fn main() {
+/// assert_cmd!(echo "Launch sequence initiated.\nNo errors whatsoever!\n")
+///     .succeeds()
+///     .prints("No errors whatsoever")
+///     .unwrap();
+/// # }
 /// ```
 ///
-/// Make sure to include the crate as `#[macro_use] extern crate assert_cli;`.
+/// The macro will try to convert its arguments as strings, but is limited by
+/// Rust's default tokenizer, e.g., you always need to quote CLI arguments
+/// like `"--verbose"`.
 #[macro_export]
-macro_rules! assert_cli {
-    ($cmd:expr, $args:expr => Success) => {{
-        $crate::assert_cli($cmd, $args)
-    }};
-    ($cmd:expr, $args:expr => Success, $output:expr) => {{
-        $crate::assert_cli_output($cmd, $args, $output)
-    }};
-    ($cmd:expr, $args:expr => Error, $output:expr) => {{
-        $crate::assert_cli_output_error($cmd, $args, None, $output)
-    }};
-    ($cmd:expr, $args:expr => Error $err:expr, $output:expr) => {{
-        $crate::assert_cli_output_error($cmd, $args, Some($err), $output)
-    }};
-    ($cmd:expr, $args:expr => Error) => {{
-        $crate::assert_cli_error($cmd, $args, None)
-    }};
-    ($cmd:expr, $args:expr => Error $err:expr) => {{
-        $crate::assert_cli_error($cmd, $args, Some($err))
-    }};
+macro_rules! assert_cmd {
+    ($($x:tt)+) => {{
+        $crate::Assert::command(
+            &[$(stringify!($x)),*]
+        )
+    }}
 }
