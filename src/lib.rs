@@ -2,14 +2,21 @@
 //!
 //! This crate's goal is to provide you some very easy tools to test your CLI
 //! applications. It can currently execute child processes and validate their
-//! exit status as well as stdout output against your assertions.
+//! exit status as well as stdout and stderr output against your assertions.
 //!
-//! ## Examples
+//! Include the crate like
+//!
+//! ```rust
+//! #[macro_use] // <-- import the convenience macro (optional)
+//! extern crate assert_cli;
+//! # fn main() { }
+//! ```
+//!
+//! ## Basic Examples
 //!
 //! Here's a trivial example:
 //!
-//! ```rust extern crate assert_cli;
-//!
+//! ```rust
 //! assert_cli::Assert::command(&["echo", "42"])
 //!     .succeeds()
 //!     .and().prints("42")
@@ -20,7 +27,7 @@
 //!
 //! ```rust,should_panic
 //! assert_cli::Assert::command(&["echo", "42"])
-//!     .prints("1337")
+//!     .prints_exactly("1337")
 //!     .unwrap();
 //! ```
 //!
@@ -31,29 +38,33 @@
 //! +42
 //! ```
 //!
+//! ## Assert CLI Crates
+//!
 //! If you are testing a Rust binary crate, you can start with
 //! `Assert::main_binary()` to use `cargo run` as command. Or, if you want to
 //! run a specific binary (if you have more than one), use
 //! `Assert::cargo_binary`.
 //!
-//! Alternatively, you can use the `assert_cmd!` macro to construct the command:
+//! ## `assert_cmd!` Macro
+//!
+//! Alternatively, you can use the `assert_cmd!` macro to construct the command more conveniently:
 //!
 //! ```rust
-//! #[macro_use] extern crate assert_cli;
-//!
+//! # #[macro_use] extern crate assert_cli;
 //! # fn main() {
 //! assert_cmd!(echo 42).succeeds().prints("42").unwrap();
 //! # }
 //! ```
 //!
-//! (Make sure to include the crate as `#[macro_use] extern crate assert_cli;`!)
+//! Don't forget to import the crate with `#[macro_use]`. ;-)
+//!
+//! ## Don't Panic!
 //!
 //! If you don't want it to panic when the assertions are not met, simply call
 //! `.execute` instead of `.unwrap` to get a `Result`:
 //!
 //! ```rust
-//! #[macro_use] extern crate assert_cli;
-//!
+//! # #[macro_use] extern crate assert_cli;
 //! # fn main() {
 //! let x = assert_cmd!(echo 1337).prints_exactly("42").execute();
 //! assert!(x.is_err());
@@ -74,7 +85,7 @@ use errors::*;
 
 mod diff;
 
-/// Assertions for a specific command
+/// Assertions for a specific command.
 #[derive(Debug)]
 pub struct Assert {
     cmd: Vec<String>,
@@ -88,6 +99,8 @@ pub struct Assert {
 
 impl std::default::Default for Assert {
     /// Construct an assert using `cargo run --` as command.
+    ///
+    /// Defaults to asserting _successful_ execution.
     fn default() -> Self {
         Assert {
             cmd: vec!["cargo", "run", "--"]
@@ -103,12 +116,16 @@ impl std::default::Default for Assert {
 }
 
 impl Assert {
-    /// Use the crate's main binary as command
+    /// Run the crate's main binary.
+    ///
+    /// Defaults to asserting _successful_ execution.
     pub fn main_binary() -> Self {
         Assert::default()
     }
 
-    /// Use the crate's main binary as command
+    /// Run a specific binary of the current crate.
+    ///
+    /// Defaults to asserting _successful_ execution.
     pub fn cargo_binary(name: &str) -> Self {
         Assert {
             cmd: vec!["cargo", "run", "--bin", name, "--"]
@@ -117,7 +134,9 @@ impl Assert {
         }
     }
 
-    /// Use custom command
+    /// Run a custom command.
+    ///
+    /// Defaults to asserting _successful_ execution.
     ///
     /// # Examples
     ///
@@ -135,7 +154,7 @@ impl Assert {
         }
     }
 
-    /// Add arguments to the command
+    /// Add arguments to the command.
     ///
     /// # Examples
     ///
@@ -153,7 +172,7 @@ impl Assert {
         self
     }
 
-    /// Small helper to make chains more readable
+    /// Small helper to make chains more readable.
     ///
     /// # Examples
     ///
@@ -168,7 +187,9 @@ impl Assert {
         self
     }
 
-    /// Expect the command to be executed successfully
+    /// Expect the command to be executed successfully.
+    ///
+    /// Note: This is already set by default, so you only need this for explicitness.
     ///
     /// # Examples
     ///
@@ -184,7 +205,10 @@ impl Assert {
         self
     }
 
-    /// Expect the command to fail
+    /// Expect the command to fail.
+    ///
+    /// Note: This does not include shell failures like `command not found`. I.e. the
+    ///       command must _run_ and fail for this assertion to pass.
     ///
     /// # Examples
     ///
@@ -200,7 +224,7 @@ impl Assert {
         self
     }
 
-    /// Expect the command to fail and return a specific error code
+    /// Expect the command to fail and return a specific error code.
     ///
     /// # Examples
     ///
@@ -217,7 +241,7 @@ impl Assert {
         self
     }
 
-    /// Expect the command's output to contain `output`
+    /// Expect the command's output to contain `output`.
     ///
     /// # Examples
     ///
@@ -234,7 +258,7 @@ impl Assert {
         self
     }
 
-    /// Expect the command to output exactly this `output`
+    /// Expect the command to output exactly this `output`.
     ///
     /// # Examples
     ///
@@ -251,7 +275,7 @@ impl Assert {
         self
     }
 
-    /// Expect the command's stderr output to contain `output`
+    /// Expect the command's stderr output to contain `output`.
     ///
     /// # Examples
     ///
@@ -269,7 +293,7 @@ impl Assert {
         self
     }
 
-    /// Expect the command to output exactly this `output` to stderr
+    /// Expect the command to output exactly this `output` to stderr.
     ///
     /// # Examples
     ///
@@ -287,7 +311,7 @@ impl Assert {
         self
     }
 
-    /// Execute the command and check the assertions
+    /// Execute the command and check the assertions.
     ///
     /// # Examples
     ///
@@ -362,7 +386,7 @@ impl Assert {
         Ok(())
     }
 
-    /// Execute the command, check the assertions, and panic when they fail
+    /// Execute the command, check the assertions, and panic when they fail.
     ///
     /// # Examples
     ///
@@ -380,7 +404,7 @@ impl Assert {
     }
 }
 
-/// Easily construct an `Assert` with a custom command
+/// Easily construct an `Assert` with a custom command.
 ///
 /// Make sure to include the crate as `#[macro_use] extern crate assert_cli;` if
 /// you want to use this macro.
@@ -394,7 +418,7 @@ impl Assert {
 /// No errors whatsoever
 /// ```
 ///
-/// you would call it like this:
+/// ...,  you would call it like this:
 ///
 /// ```rust
 /// #[macro_use] extern crate assert_cli;
