@@ -1,13 +1,8 @@
 # Assert CLI
 
-> Test CLI Applications.
+> **Test CLI Applications** - This crate checks the output of a child process is as expected.
 
-Currently, this crate only includes basic functionality to check the output of a child process
-is as expected.
-
-[![Build Status](https://travis-ci.org/killercup/assert_cli.svg)](https://travis-ci.org/killercup/assert_cli) [![Coverage Status](https://coveralls.io/repos/killercup/assert_cli/badge.svg?branch=master&service=github)](https://coveralls.io/github/killercup/assert_cli?branch=master)
-
-**[Documentation](http://killercup.github.io/assert_cli/)**
+[![Build Status](https://travis-ci.org/killercup/assert_cli.svg)](https://travis-ci.org/killercup/assert_cli) [![Documentation](https://img.shields.io/badge/docs-master-blue.svg)][Documentation]
 
 ## Install
 
@@ -54,8 +49,8 @@ fn main() {
 }
 ```
 
-If you want to check for the program's output, you can use `print` or
-`print_exactly`:
+If you want to match the program's output _exactly_, you can use
+`prints_exactly`:
 
 ```rust,should_panic="Assert CLI failure"
 #[macro_use] extern crate assert_cli;
@@ -67,12 +62,15 @@ fn main() {
 }
 ```
 
-this will show a nice, colorful diff in your terminal, like this:
+... which has the benefit to show a nice, colorful diff in your terminal,
+like this:
 
 ```diff
 -1337
 +92
 ```
+
+More detailed information is available in the [documentation]. :-)
 
 ## License
 
@@ -89,3 +87,5 @@ Unless you explicitly state otherwise, any contribution intentionally
 submitted for inclusion in the work by you, as defined in the Apache-2.0
 license, shall be dual licensed as above, without any additional terms or
 conditions.
+
+[Documentation]: http://killercup.github.io/assert_cli/
