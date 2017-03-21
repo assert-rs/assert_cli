@@ -9,7 +9,7 @@ homepage = "https://github.com/killercup/assert_cli"
 documentation = "http://killercup.github.io/assert_cli/"
 readme = "README.md"
 categories = ["development-tools::testing"]
-keywords = ["cli", "testing"]
+keywords = ["cli", "testing", "assert"]
 build = "build.rs"
 
 [dependencies]
