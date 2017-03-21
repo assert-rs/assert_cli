@@ -90,7 +90,7 @@ mod diff;
 #[derive(Debug)]
 pub struct Assert {
     cmd: Vec<String>,
-    expect_success: bool,
+    expect_success: Option<bool>,
     expect_exit_code: Option<i32>,
     expect_stdout: Option<OutputAssertion>,
     expect_stderr: Option<OutputAssertion>,
@@ -134,7 +134,7 @@ impl std::default::Default for Assert {
         Assert {
             cmd: vec!["cargo", "run", "--"]
                 .into_iter().map(String::from).collect(),
-            expect_success: true,
+            expect_success: None,
             expect_exit_code: None,
             expect_stdout: None,
             expect_stderr: None,
@@ -216,8 +216,6 @@ impl Assert {
 
     /// Expect the command to be executed successfully.
     ///
-    /// Note: This is already set by default, so you only need this for explicitness.
-    ///
     /// # Examples
     ///
     /// ```rust
@@ -228,7 +226,8 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn succeeds(mut self) -> Self {
-        self.expect_success = true;
+        self.expect_exit_code = None;
+        self.expect_success = Some(true);
         self
     }
 
@@ -247,7 +246,7 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn fails(mut self) -> Self {
-        self.expect_success = false;
+        self.expect_success = Some(false);
         self
     }
 
@@ -263,7 +262,7 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn fails_with(mut self, expect_exit_code: i32) -> Self {
-        self.expect_success = false;
+        self.expect_success = Some(false);
         self.expect_exit_code = Some(expect_exit_code);
         self
     }
@@ -366,11 +365,13 @@ impl Assert {
         let output = command.output()?;
 
 
-        if self.expect_success != output.status.success() {
-            bail!(ErrorKind::StatusMismatch(
-                self.cmd.clone(),
-                self.expect_success.clone(),
-            ));
+        if let Some(expect_success) = self.expect_success {
+            if expect_success != output.status.success() {
+                bail!(ErrorKind::StatusMismatch(
+                    self.cmd.clone(),
+                    expect_success,
+                ));
+            }
         }
 
         if self.expect_exit_code.is_some() &&
