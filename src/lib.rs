@@ -91,10 +91,14 @@ pub struct Assert {
     cmd: Vec<String>,
     expect_success: bool,
     expect_exit_code: Option<i32>,
-    expect_output: Option<String>,
-    fuzzy_output: bool,
-    expect_error_output: Option<String>,
-    fuzzy_error_output: bool,
+    expect_stdout: Option<OutputAssertion>,
+    expect_stderr: Option<OutputAssertion>,
+}
+
+#[derive(Debug)]
+struct OutputAssertion {
+    expect: String,
+    fuzzy: bool,
 }
 
 impl std::default::Default for Assert {
@@ -107,10 +111,8 @@ impl std::default::Default for Assert {
                 .into_iter().map(String::from).collect(),
             expect_success: true,
             expect_exit_code: None,
-            expect_output: None,
-            fuzzy_output: false,
-            expect_error_output: None,
-            fuzzy_error_output: false,
+            expect_stdout: None,
+            expect_stderr: None,
         }
     }
 }
@@ -253,8 +255,10 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn prints<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_output = Some(output.into());
-        self.fuzzy_output = true;
+        self.expect_stdout = Some(OutputAssertion {
+            expect: output.into(),
+            fuzzy: true,
+        });
         self
     }
 
@@ -270,8 +274,10 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn prints_exactly<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_output = Some(output.into());
-        self.fuzzy_output = false;
+        self.expect_stdout = Some(OutputAssertion {
+            expect: output.into(),
+            fuzzy: false,
+        });
         self
     }
 
@@ -288,8 +294,10 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn prints_error<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_error_output = Some(output.into());
-        self.fuzzy_error_output = true;
+        self.expect_stderr = Some(OutputAssertion {
+            expect: output.into(),
+            fuzzy: true,
+        });
         self
     }
 
@@ -306,8 +314,10 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn prints_error_exactly<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_error_output = Some(output.into());
-        self.fuzzy_error_output = false;
+        self.expect_stderr = Some(OutputAssertion {
+            expect: output.into(),
+            fuzzy: false,
+        });
         self
     }
 
@@ -348,15 +358,21 @@ impl Assert {
         }
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        match (self.expect_output, self.fuzzy_output) {
-            (Some(ref expected_output), true) if !stdout.contains(expected_output) => {
+        match self.expect_stdout {
+            Some(OutputAssertion {
+                expect: ref expected_output,
+                fuzzy: true,
+            }) if !stdout.contains(expected_output) => {
                 bail!(ErrorKind::OutputMismatch(
                     self.cmd.clone(),
                     expected_output.clone(),
                     stdout.into(),
                 ));
             },
-            (Some(ref expected_output), false) => {
+            Some(OutputAssertion {
+                expect: ref expected_output,
+                fuzzy: false,
+            }) => {
                 let differences = Changeset::new(expected_output.trim(), stdout.trim(), "\n");
                 if differences.distance > 0 {
                     let nice_diff = diff::render(&differences)?;
@@ -367,15 +383,21 @@ impl Assert {
         }
 
         let stderr = String::from_utf8_lossy(&output.stderr);
-        match (self.expect_error_output, self.fuzzy_error_output) {
-            (Some(ref expected_output), true) if !stderr.contains(expected_output) => {
+        match self.expect_stderr {
+            Some(OutputAssertion {
+                expect: ref expected_output,
+                fuzzy: true,
+            }) if !stderr.contains(expected_output) => {
                 bail!(ErrorKind::ErrorOutputMismatch(
                     self.cmd.clone(),
                     expected_output.clone(),
                     stderr.into(),
                 ));
             },
-            (Some(ref expected_output), false) => {
+            Some(OutputAssertion {
+                expect: ref expected_output,
+                fuzzy: false,
+            }) => {
                 let differences = Changeset::new(expected_output.trim(), stderr.trim(), "\n");
                 if differences.distance > 0 {
                     let nice_diff = diff::render(&differences)?;
