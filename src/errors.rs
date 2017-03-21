@@ -26,40 +26,23 @@ error_chain! {
                 got,
             )
         }
-        OutputMismatch(cmd: Vec<String>, expected: String, got: String) {
+        OutputMismatch(output_name: String, cmd: Vec<String>, expected: String, got: String) {
             description("Output was not as expected")
             display(
-                "{}: `(output of `{}` expected to contain `{:?}`)` (output was: `{:?}`)",
+                "{}: `({} of `{}` expected to contain `{:?}`)` (output was: `{:?}`)",
                 ERROR_PREFIX,
+                output_name,
                 cmd.join(" "),
                 expected,
                 got,
             )
         }
-        ExactOutputMismatch(cmd: Vec<String>, diff: String) {
+        ExactOutputMismatch(output_name: String, cmd: Vec<String>, diff: String) {
             description("Output was not as expected")
             display(
-                "{}: `(output of `{}` was not as expected)`\n{}\n",
+                "{}: `({} of `{}` was not as expected)`\n{}\n",
                 ERROR_PREFIX,
-                cmd.join(" "),
-                diff.trim()
-            )
-        }
-        ErrorOutputMismatch(cmd: Vec<String>, expected: String, got: String) {
-            description("Stderr output was not as expected")
-            display(
-                "{}: `(stderr output of `{}` expected to contain `{:?}`)` (stderr was: `{:?}`)",
-                ERROR_PREFIX,
-                cmd.join(" "),
-                expected,
-                got,
-            )
-        }
-        ExactErrorOutputMismatch(cmd: Vec<String>, diff: String) {
-            description("Stderr output was not as expected")
-            display(
-                "{}: `(stderr output of `{}` was not as expected)`\n{}\n",
-                ERROR_PREFIX,
+                output_name,
                 cmd.join(" "),
                 diff.trim()
             )
