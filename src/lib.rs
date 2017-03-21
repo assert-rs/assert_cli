@@ -351,6 +351,7 @@ impl Assert {
         match (self.expect_output, self.fuzzy_output) {
             (Some(ref expected_output), true) if !stdout.contains(expected_output) => {
                 bail!(ErrorKind::OutputMismatch(
+                    self.cmd.clone(),
                     expected_output.clone(),
                     stdout.into(),
                 ));
@@ -359,7 +360,7 @@ impl Assert {
                 let differences = Changeset::new(expected_output.trim(), stdout.trim(), "\n");
                 if differences.distance > 0 {
                     let nice_diff = diff::render(&differences)?;
-                    bail!(ErrorKind::ExactOutputMismatch(nice_diff));
+                    bail!(ErrorKind::ExactOutputMismatch(self.cmd.clone(), nice_diff));
                 }
             },
             _ => {},
@@ -369,6 +370,7 @@ impl Assert {
         match (self.expect_error_output, self.fuzzy_error_output) {
             (Some(ref expected_output), true) if !stderr.contains(expected_output) => {
                 bail!(ErrorKind::ErrorOutputMismatch(
+                    self.cmd.clone(),
                     expected_output.clone(),
                     stderr.into(),
                 ));
@@ -377,7 +379,7 @@ impl Assert {
                 let differences = Changeset::new(expected_output.trim(), stderr.trim(), "\n");
                 if differences.distance > 0 {
                     let nice_diff = diff::render(&differences)?;
-                    bail!(ErrorKind::ExactErrorOutputMismatch(nice_diff));
+                    bail!(ErrorKind::ExactErrorOutputMismatch(self.cmd.clone(),nice_diff));
                 }
             },
             _ => {},
@@ -399,7 +401,7 @@ impl Assert {
     /// ```
     pub fn unwrap(self) {
         if let Err(err) = self.execute() {
-            panic!("Assert CLI failure:\n{}", err);
+            panic!("{}", err);
         }
     }
 }

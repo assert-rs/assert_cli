@@ -1,3 +1,5 @@
+static ERROR_PREFIX: &'static str = "CLI assertion failed";
+
 error_chain! {
     foreign_links {
         Io(::std::io::Error);
@@ -7,42 +9,60 @@ error_chain! {
         StatusMismatch(cmd: Vec<String>, expected: bool) {
             description("Wrong status")
             display(
-                "Command {:?} {got} but expected it to {expected}",
+                "{}: `(command `{}` expected to {})` (command {})",
+                ERROR_PREFIX,
                 cmd.join(" "),
-                got = if *expected { "failed" } else { "succeed" },
-                expected = if *expected { "succeed" } else { "failed" },
+                expected = if *expected { "succeed" } else { "fail" },
+                got = if *expected { "failed" } else { "succeeded" },
             )
         }
         ExitCodeMismatch(cmd: Vec<String>, expected: Option<i32>, got: Option<i32>) {
             description("Wrong exit code")
             display(
-                "Command {:?} exited with code {:?} but expected it to be {:?}",
-                cmd.join(" "), got, expected,
-            )
-        }
-        OutputMismatch(expected: String, got: String) {
-            description("Output was not as expected")
-            display(
-                "Expected output to contain\n{}\nbut could not find it in\n{}",
+                "{}: `(exit code of `{}` expected to be `{:?}`)` (exit code was: `{:?}`)",
+                ERROR_PREFIX,
+                cmd.join(" "),
                 expected,
                 got,
             )
         }
-        ExactOutputMismatch(diff: String) {
+        OutputMismatch(cmd: Vec<String>, expected: String, got: String) {
             description("Output was not as expected")
-            display("{}", diff)
-        }
-        ErrorOutputMismatch(expected: String, got: String) {
-            description("Stderr output was not as expected")
             display(
-                "Expected stderr output to contain\n{}\nbut could not find it in\n{}",
+                "{}: `(output of `{}` expected to contain `{:?}`)` (output was: `{:?}`)",
+                ERROR_PREFIX,
+                cmd.join(" "),
                 expected,
                 got,
             )
         }
-        ExactErrorOutputMismatch(diff: String) {
+        ExactOutputMismatch(cmd: Vec<String>, diff: String) {
+            description("Output was not as expected")
+            display(
+                "{}: `(output of `{}` was not as expected)`\n{}\n",
+                ERROR_PREFIX,
+                cmd.join(" "),
+                diff.trim()
+            )
+        }
+        ErrorOutputMismatch(cmd: Vec<String>, expected: String, got: String) {
             description("Stderr output was not as expected")
-            display("{}", diff)
+            display(
+                "{}: `(stderr output of `{}` expected to contain `{:?}`)` (stderr was: `{:?}`)",
+                ERROR_PREFIX,
+                cmd.join(" "),
+                expected,
+                got,
+            )
+        }
+        ExactErrorOutputMismatch(cmd: Vec<String>, diff: String) {
+            description("Stderr output was not as expected")
+            display(
+                "{}: `(stderr output of `{}` was not as expected)`\n{}\n",
+                ERROR_PREFIX,
+                cmd.join(" "),
+                diff.trim()
+            )
         }
     }
 }
