@@ -42,17 +42,17 @@ And here is one that will fail (which also shows `execute` which returns a
 #[macro_use] extern crate assert_cli;
 
 fn main() {
-    let test = assert_cmd!(grep amet Cargo.toml)
+    let test = assert_cmd!(grep amet "Cargo.toml")
         .fails_with(1)
         .execute();
-    assert!(test.is_err());
+    assert!(test.is_ok());
 }
 ```
 
 If you want to match the program's output _exactly_, you can use
 `prints_exactly`:
 
-```rust,should_panic="Assert CLI failure"
+```rust,should_panic
 #[macro_use] extern crate assert_cli;
 
 fn main() {

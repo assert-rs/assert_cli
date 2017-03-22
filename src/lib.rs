@@ -75,6 +75,7 @@
 
 extern crate difference;
 #[macro_use] extern crate error_chain;
+extern crate rustc_serialize;
 
 use std::process::{Command, Output};
 use std::fmt;
@@ -83,6 +84,9 @@ use difference::Changeset;
 
 mod errors;
 use errors::*;
+
+#[macro_use] mod macros;
+pub use macros::flatten_escaped_string;
 
 mod diff;
 
@@ -447,42 +451,4 @@ impl Assert {
             panic!("{}", err);
         }
     }
-}
-
-/// Easily construct an `Assert` with a custom command.
-///
-/// Make sure to include the crate as `#[macro_use] extern crate assert_cli;` if
-/// you want to use this macro.
-///
-/// # Examples
-///
-/// To test that our very complex cli applications succeeds and prints some
-/// text to stdout that contains
-///
-/// ```plain
-/// No errors whatsoever
-/// ```
-///
-/// ...,  you would call it like this:
-///
-/// ```rust
-/// #[macro_use] extern crate assert_cli;
-/// # fn main() {
-/// assert_cmd!(echo "Launch sequence initiated.\nNo errors whatsoever!\n")
-///     .succeeds()
-///     .prints("No errors whatsoever")
-///     .unwrap();
-/// # }
-/// ```
-///
-/// The macro will try to convert its arguments as strings, but is limited by
-/// Rust's default tokenizer, e.g., you always need to quote CLI arguments
-/// like `"--verbose"`.
-#[macro_export]
-macro_rules! assert_cmd {
-    ($($x:tt)+) => {{
-        $crate::Assert::command(
-            &[$(stringify!($x)),*]
-        )
-    }}
 }

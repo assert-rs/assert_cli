@@ -16,6 +16,7 @@ build = "build.rs"
 colored = "1.4"
 difference = "1.0"
 error-chain = "0.10.0"
+rustc-serialize = "0.3"
 
 [build-dependencies]
 skeptic = "0.5"
