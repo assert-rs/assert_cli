@@ -10,8 +10,8 @@ matrix:
   - rust: nightly-2017-03-15
     env: CLIPPY=YESPLEASE
     script: |
-        cargo install clippy --vers "0.0.120"
-        cargo clippy
+        cargo +nightly-2017-03-15 install clippy --vers "0.0.120"
+        cargo +nightly-2017-03-15 clippy
 before_script:
 - |
   pip install 'travis-cargo<0.2' --user &&
