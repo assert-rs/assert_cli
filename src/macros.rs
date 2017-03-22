@@ -71,7 +71,9 @@ pub fn flatten_escaped_string(x: &str) -> Cow<str> {
 }
 
 /// Inspect a single token and decide if it is safe to `stringify!`, without loosing
-/// information about whitespaces, to address https://github.com/killercup/assert_cli/issues/22.
+/// information about whitespaces, to address [issue 22].
+///
+/// [issue 22]: https://github.com/killercup/assert_cli/issues/22
 ///
 /// Call like `__assert_single_token_expression!(@CHECK x)`, where `x` can be any token to check.
 ///
