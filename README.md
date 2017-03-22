@@ -1,13 +1,8 @@
 # Assert CLI
 
-> Test CLI Applications.
+> **Test CLI Applications** - This crate checks the output of a child process is as expected.
 
-Currently, this crate only includes basic functionality to check the output of a child process
-is as expected.
-
-[![Build Status](https://travis-ci.org/killercup/assert_cli.svg)](https://travis-ci.org/killercup/assert_cli) [![Coverage Status](https://coveralls.io/repos/killercup/assert_cli/badge.svg?branch=master&service=github)](https://coveralls.io/github/killercup/assert_cli?branch=master)
-
-**[Documentation](http://killercup.github.io/assert_cli/)**
+[![Build Status](https://travis-ci.org/killercup/assert_cli.svg)](https://travis-ci.org/killercup/assert_cli) [![Documentation](https://img.shields.io/badge/docs-master-blue.svg)][Documentation]
 
 ## Install
 
@@ -30,13 +25,13 @@ fn main() {
 }
 ```
 
-Or if you'd rather use the macro:
+Or if you'd rather use the macro, to save you some writing:
 
 ```rust
 #[macro_use] extern crate assert_cli;
 
 fn main() {
-    assert_cmd!(echo 42).succeeds().and().prints("42").unwrap();
+    assert_cmd!(echo "42").prints("42").unwrap();
 }
 ```
 
@@ -47,32 +42,41 @@ And here is one that will fail (which also shows `execute` which returns a
 #[macro_use] extern crate assert_cli;
 
 fn main() {
-    let test = assert_cmd!(grep amet Cargo.toml)
-        .fails_with(1)
+    let test = assert_cmd!(ls "foo-bar-foo")
+        .fails()
+        .and()
+        .prints_error("foo-bar-foo")
         .execute();
-    assert!(test.is_err());
+    assert!(test.is_ok());
 }
 ```
 
-If you want to check for the program's output, you can use `print` or
-`print_exactly`:
+If you want to match the program's output _exactly_, you can use
+`prints_exactly`:
 
-```rust,should_panic="Assert CLI failure"
+```rust,should_panic
 #[macro_use] extern crate assert_cli;
 
 fn main() {
-    assert_cmd!("wc" "README.md")
+    assert_cmd!(wc "README.md")
         .prints_exactly("1337 README.md")
         .unwrap();
 }
 ```
 
-this will show a nice, colorful diff in your terminal, like this:
+... which has the benefit to show a nice, colorful diff in your terminal,
+like this:
 
 ```diff
 -1337
 +92
 ```
+
+**Tip**: Enclose arguments in the `assert_cmd!` macro in quotes `"`,
+         if there are special characters, which the macro doesn't accept, e.g.
+         `assert_cmd!(cat "foo.txt")`.
+
+More detailed information is available in the [documentation]. :-)
 
 ## License
 
@@ -89,3 +93,5 @@ Unless you explicitly state otherwise, any contribution intentionally
 submitted for inclusion in the work by you, as defined in the Apache-2.0
 license, shall be dual licensed as above, without any additional terms or
 conditions.
+
+[Documentation]: http://killercup.github.io/assert_cli/
