@@ -18,8 +18,7 @@
 //!
 //! ```rust
 //! assert_cli::Assert::command(&["echo", "42"])
-//!     .succeeds()
-//!     .and().prints("42")
+//!     .prints("42")
 //!     .unwrap();
 //! ```
 //!
@@ -38,25 +37,57 @@
 //! +42
 //! ```
 //!
+//! ## `assert_cmd!` Macro
+//!
+//! Alternatively, you can use the `assert_cmd!` macro to construct the command more conveniently,
+//! but please carefully read the limitations below, or this may seriously go wrong.
+//!
+//! ```rust
+//! # #[macro_use] extern crate assert_cli;
+//! # fn main() {
+//! assert_cmd!(echo "42").prints("42").unwrap();
+//! # }
+//! ```
+//!
+//! **Tips**
+//!
+//! - Don't forget to import the crate with `#[macro_use]`. ;-)
+//! - Enclose arguments in the `assert_cmd!` macro in quotes `"`,
+//!   if there are special characters, which the macro doesn't accept, e.g.
+//!   `assert_cmd!(cat "foo.txt")`.
+//!
+//! ## Exit Status
+//!
+//! All assertion default to checking that the command exited with success.
+//!
+//! However, when you expect a command to fail, you can express it like this:
+//!
+//! ```rust
+//! # #[macro_use] extern crate assert_cli;
+//! # fn main() {
+//! assert_cmd!(cat "non-existing-file")
+//!     .fails()
+//!     .and()
+//!     .prints_error("non-existing-file")
+//!     .unwrap();
+//! # }
+//! ```
+//!
+//! Some notes on this:
+//!
+//! - Use `fails_with` to assert a specific exit status.
+//! - There is also a `succeeds` method, but this is already the implicit default
+//!   and can usually be omitted.
+//! - We can inspect the output of **stderr** with `prints_error` and `prints_error_exactly`.
+//! - The `and` method has no effect, other than to make everything more readable.
+//!   Feel free to use it. :-)
+//!
 //! ## Assert CLI Crates
 //!
 //! If you are testing a Rust binary crate, you can start with
 //! `Assert::main_binary()` to use `cargo run` as command. Or, if you want to
 //! run a specific binary (if you have more than one), use
 //! `Assert::cargo_binary`.
-//!
-//! ## `assert_cmd!` Macro
-//!
-//! Alternatively, you can use the `assert_cmd!` macro to construct the command more conveniently:
-//!
-//! ```rust
-//! # #[macro_use] extern crate assert_cli;
-//! # fn main() {
-//! assert_cmd!(echo 42).succeeds().prints("42").unwrap();
-//! # }
-//! ```
-//!
-//! Don't forget to import the crate with `#[macro_use]`. ;-)
 //!
 //! ## Don't Panic!
 //!
@@ -66,7 +97,7 @@
 //! ```rust
 //! # #[macro_use] extern crate assert_cli;
 //! # fn main() {
-//! let x = assert_cmd!(echo 1337).prints_exactly("42").execute();
+//! let x = assert_cmd!(echo "1337").prints_exactly("42").execute();
 //! assert!(x.is_err());
 //! # }
 //! ```
@@ -175,7 +206,6 @@ impl Assert {
     /// extern crate assert_cli;
     ///
     /// assert_cli::Assert::command(&["echo", "1337"])
-    ///     .succeeds()
     ///     .unwrap();
     /// ```
     pub fn command(cmd: &[&str]) -> Self {
@@ -194,7 +224,6 @@ impl Assert {
     ///
     /// assert_cli::Assert::command(&["echo"])
     ///     .with_args(&["42"])
-    ///     .succeeds()
     ///     .prints("42")
     ///     .unwrap();
     /// ```
@@ -211,7 +240,7 @@ impl Assert {
     /// extern crate assert_cli;
     ///
     /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .succeeds().and().prints("42")
+    ///     .prints("42")
     ///     .unwrap();
     /// ```
     pub fn and(self) -> Self {
@@ -226,7 +255,6 @@ impl Assert {
     /// extern crate assert_cli;
     ///
     /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .succeeds()
     ///     .unwrap();
     /// ```
     pub fn succeeds(mut self) -> Self {
@@ -245,8 +273,10 @@ impl Assert {
     /// ```rust
     /// extern crate assert_cli;
     ///
-    /// assert_cli::Assert::command(&["cat", "non-exisiting-file"])
+    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
     ///     .fails()
+    ///     .and()
+    ///     .prints_error("non-existing-file")
     ///     .unwrap();
     /// ```
     pub fn fails(mut self) -> Self {
@@ -261,8 +291,10 @@ impl Assert {
     /// ```rust
     /// extern crate assert_cli;
     ///
-    /// assert_cli::Assert::command(&["cat", "non-exisiting-file"])
+    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
     ///     .fails_with(1)
+    ///     .and()
+    ///     .prints_error_exactly("cat: non-existing-file: No such file or directory")
     ///     .unwrap();
     /// ```
     pub fn fails_with(mut self, expect_exit_code: i32) -> Self {
@@ -271,7 +303,7 @@ impl Assert {
         self
     }
 
-    /// Expect the command's output to contain `output`.
+    /// Expect the command's output to **contain** `output`.
     ///
     /// # Examples
     ///
@@ -290,7 +322,7 @@ impl Assert {
         self
     }
 
-    /// Expect the command to output exactly this `output`.
+    /// Expect the command to output **exactly** this `output`.
     ///
     /// # Examples
     ///
@@ -309,16 +341,17 @@ impl Assert {
         self
     }
 
-    /// Expect the command's stderr output to contain `output`.
+    /// Expect the command's stderr output to **contain** `output`.
     ///
     /// # Examples
     ///
     /// ```rust
     /// extern crate assert_cli;
     ///
-    /// assert_cli::Assert::command(&["cat", "non-exisiting-file"])
+    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
     ///     .fails()
-    ///     .prints_error("non-exisiting-file")
+    ///     .and()
+    ///     .prints_error("non-existing-file")
     ///     .unwrap();
     /// ```
     pub fn prints_error<O: Into<String>>(mut self, output: O) -> Self {
@@ -329,16 +362,17 @@ impl Assert {
         self
     }
 
-    /// Expect the command to output exactly this `output` to stderr.
+    /// Expect the command to output **exactly** this `output` to stderr.
     ///
     /// # Examples
     ///
     /// ```rust
     /// extern crate assert_cli;
     ///
-    /// assert_cli::Assert::command(&["cat", "non-exisiting-file"])
-    ///     .fails()
-    ///     .prints_error_exactly("cat: non-exisiting-file: No such file or directory")
+    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    ///     .fails_with(1)
+    ///     .and()
+    ///     .prints_error_exactly("cat: non-existing-file: No such file or directory")
     ///     .unwrap();
     /// ```
     pub fn prints_error_exactly<O: Into<String>>(mut self, output: O) -> Self {
@@ -357,7 +391,7 @@ impl Assert {
     /// extern crate assert_cli;
     ///
     /// let test = assert_cli::Assert::command(&["echo", "42"])
-    ///     .succeeds()
+    ///     .prints("42")
     ///     .execute();
     /// assert!(test.is_ok());
     /// ```

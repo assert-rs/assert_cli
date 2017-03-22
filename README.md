@@ -25,13 +25,13 @@ fn main() {
 }
 ```
 
-Or if you'd rather use the macro:
+Or if you'd rather use the macro, to save you some writing:
 
 ```rust
 #[macro_use] extern crate assert_cli;
 
 fn main() {
-    assert_cmd!(echo 42).succeeds().and().prints("42").unwrap();
+    assert_cmd!(echo "42").prints("42").unwrap();
 }
 ```
 
@@ -42,8 +42,10 @@ And here is one that will fail (which also shows `execute` which returns a
 #[macro_use] extern crate assert_cli;
 
 fn main() {
-    let test = assert_cmd!(grep amet "Cargo.toml")
-        .fails_with(1)
+    let test = assert_cmd!(ls "foo-bar-foo")
+        .fails()
+        .and()
+        .prints_error("foo-bar-foo")
         .execute();
     assert!(test.is_ok());
 }
@@ -56,7 +58,7 @@ If you want to match the program's output _exactly_, you can use
 #[macro_use] extern crate assert_cli;
 
 fn main() {
-    assert_cmd!("wc" "README.md")
+    assert_cmd!(wc "README.md")
         .prints_exactly("1337 README.md")
         .unwrap();
 }
@@ -69,6 +71,10 @@ like this:
 -1337
 +92
 ```
+
+**Tip**: Enclose arguments in the `assert_cmd!` macro in quotes `"`,
+         if there are special characters, which the macro doesn't accept, e.g.
+         `assert_cmd!(cat "foo.txt")`.
 
 More detailed information is available in the [documentation]. :-)
 
