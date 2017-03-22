@@ -138,7 +138,7 @@ impl std::default::Default for Assert {
         Assert {
             cmd: vec!["cargo", "run", "--"]
                 .into_iter().map(String::from).collect(),
-            expect_success: None,
+            expect_success: Some(true),
             expect_exit_code: None,
             expect_stdout: None,
             expect_stderr: None,

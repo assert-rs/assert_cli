@@ -1,4 +1,4 @@
-static ERROR_PREFIX: &'static str = "CLI assertion failed";
+const ERROR_PREFIX: &'static str = "CLI assertion failed";
 
 error_chain! {
     foreign_links {
