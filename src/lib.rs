@@ -119,6 +119,9 @@ pub use macros::flatten_escaped_string;
 mod output;
 use output::{OutputAssertion, StdErr, StdOut};
 
+mod parse_cmd;
+use parse_cmd::ToCmd;
+
 mod diff;
 
 /// Assertions for a specific command.
@@ -178,9 +181,16 @@ impl Assert {
     /// assert_cli::Assert::command(&["echo", "1337"])
     ///     .unwrap();
     /// ```
-    pub fn command(cmd: &[&str]) -> Self {
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command("echo 1337")
+    ///     .unwrap();
+    /// ```
+    pub fn command<'a, T: ToCmd<'a> + ?Sized>(cmd: &'a T) -> Self {
         Assert {
-            cmd: cmd.into_iter().cloned().map(String::from).collect(),
+            cmd: cmd.to_cmd(),
             ..Self::default()
         }
     }
