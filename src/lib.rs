@@ -395,12 +395,14 @@ impl Assert {
             ));
         }
 
-        if let Some(ouput_assertion) = self.expect_stdout {
-            ouput_assertion.execute(&output)?;
+        if let Some(ref ouput_assertion) = self.expect_stdout {
+            ouput_assertion.execute(&output)
+                .map_err(|e| ErrorKind::StdoutMismatch(self.cmd.clone(), e))?;
         }
 
-        if let Some(ouput_assertion) = self.expect_stderr {
-            ouput_assertion.execute(&output)?;
+        if let Some(ref ouput_assertion) = self.expect_stderr {
+            ouput_assertion.execute(&output)
+                .map_err(|e| ErrorKind::StderrMismatch(self.cmd.clone(), e))?;
         }
 
         Ok(())

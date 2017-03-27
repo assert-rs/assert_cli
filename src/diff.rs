@@ -2,11 +2,9 @@ extern crate colored;
 use self::colored::Colorize;
 
 use difference::{Difference, Changeset};
-use std::fmt::Write;
+use std::fmt::{Write, Error as fmtError};
 
-use errors::*;
-
-pub fn render(&Changeset { ref diffs, .. }: &Changeset) -> Result<String> {
+pub fn render(&Changeset { ref diffs, .. }: &Changeset) -> Result<String, fmtError> {
     let mut t = String::new();
 
     for (i, diff) in diffs.iter().enumerate() {
@@ -66,11 +64,11 @@ mod tests {
 sed do eiusmod tempor incididunt ut labore et dolore magna
 aliqua. Ut enim ad minim veniam, quis nostrud exercitation
 ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-                             "Lorem ipsum dolor sit amet, consectetur adipisicing elit,
+                                  "Lorem ipsum dolor sit amet, consectetur adipisicing elit,
 sed do eiusmod tempor **incididunt** ut labore et dolore magna
 aliqua. Ut enim ad minim veniam, quis nostrud exercitation
 ullamco laboris nisi ut aliquip ex ea commodo consequat.",
-                             "\n");
+                                  "\n");
         println!("{}", render(&diff).unwrap());
         assert_eq!(render(&diff).unwrap(), " Lorem ipsum dolor sit amet, consectetur adipisicing elit,\n\u{1b}[31m-sed do eiusmod tempor incididunt ut labore et dolore magna\u{1b}[0m\n\u{1b}[32m+\u{1b}[0m\u{1b}[32msed do eiusmod tempor\u{1b}[0m \u{1b}[7;32m**incididunt**\u{1b}[0m \u{1b}[32mut labore et dolore magna\u{1b}[0m \n aliqua. Ut enim ad minim veniam, quis nostrud exercitation\nullamco laboris nisi ut aliquip ex ea commodo consequat.\n");
     }

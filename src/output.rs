@@ -3,7 +3,8 @@ use std::process::Output;
 
 use difference::Changeset;
 
-use errors::*;
+use self::errors::*;
+pub use self::errors::{Error, ErrorKind};
 use diff;
 
 #[derive(Debug, Clone)]
@@ -16,12 +17,7 @@ pub struct OutputAssertion<T> {
 impl<T: OutputType> OutputAssertion<T> {
     fn matches_fuzzy(&self, got: &str) -> Result<()> {
         if !got.contains(&self.expect) {
-            bail!(ErrorKind::OutputMismatch(
-                self.kind.to_string(),
-                vec!["Foo".to_string()],
-                self.expect.clone(),
-                got.into(),
-            ));
+            bail!(ErrorKind::OutputMismatch(self.expect.clone(), got.into()));
         }
 
         Ok(())
@@ -32,11 +28,7 @@ impl<T: OutputType> OutputAssertion<T> {
 
         if differences.distance > 0 {
             let nice_diff = diff::render(&differences)?;
-            bail!(ErrorKind::ExactOutputMismatch(
-                self.kind.to_string(),
-                vec!["Foo".to_string()],
-                nice_diff
-            ));
+            bail!(ErrorKind::ExactOutputMismatch(nice_diff));
         }
 
         Ok(())
@@ -87,5 +79,24 @@ impl fmt::Display for StdErr {
 impl OutputType for StdErr {
     fn select<'a>(&self, o: &'a Output) -> &'a [u8] {
         &o.stderr
+    }
+}
+
+mod errors {
+    error_chain! {
+        foreign_links {
+            // Io(::std::io::Error);
+            Fmt(::std::fmt::Error);
+        }
+        errors {
+            OutputMismatch(expected: String, got: String) {
+                description("Output was not as expected")
+                display("expected {:?}, got {:?}", expected, got)
+            }
+            ExactOutputMismatch(diff: String) {
+                description("Output was not as expected")
+                display("{}", diff)
+            }
+        }
     }
 }
