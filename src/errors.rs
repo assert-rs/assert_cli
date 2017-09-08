@@ -9,7 +9,7 @@ error_chain! {
         StatusMismatch(cmd: Vec<String>, expected: bool) {
             description("Wrong status")
             display(
-                "{}: `(command `{}` expected to {})` (command {})",
+                "{}: (command `{}` expected to {}) (command {})",
                 ERROR_PREFIX,
                 cmd.join(" "),
                 expected = if *expected { "succeed" } else { "fail" },
@@ -19,33 +19,27 @@ error_chain! {
         ExitCodeMismatch(cmd: Vec<String>, expected: Option<i32>, got: Option<i32>) {
             description("Wrong exit code")
             display(
-                "{}: `(exit code of `{}` expected to be `{:?}`)` (exit code was: `{:?}`)",
+                "{}: (exit code of `{}` expected to be `{:?}`) (exit code was: `{:?}`)",
                 ERROR_PREFIX,
                 cmd.join(" "),
                 expected,
                 got,
             )
         }
-        OutputMismatch(output_name: String, cmd: Vec<String>, expected: String, got: String) {
+        StdoutMismatch(cmd: Vec<String>, output_err: ::output::Error) {
             description("Output was not as expected")
             display(
-                "{}: `({} of `{}` expected to contain `{:?}`)` (output was: `{:?}`)",
-                ERROR_PREFIX,
-                output_name,
-                cmd.join(" "),
-                expected,
-                got,
+                "{}: `{}` stdout mismatch: `{}`)",
+                ERROR_PREFIX, cmd.join(" "), output_err,
             )
         }
-        ExactOutputMismatch(output_name: String, cmd: Vec<String>, diff: String) {
-            description("Output was not as expected")
+        StderrMismatch(cmd: Vec<String>, output_err: ::output::Error) {
+            description("Error output was not as expected")
             display(
-                "{}: `({} of `{}` was not as expected)`\n{}\n",
-                ERROR_PREFIX,
-                output_name,
-                cmd.join(" "),
-                diff.trim()
+                "{}: `{}` stderr mismatch: `{}`)",
+                ERROR_PREFIX, cmd.join(" "), output_err,
             )
         }
+
     }
 }

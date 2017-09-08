@@ -108,16 +108,16 @@ extern crate difference;
 #[macro_use] extern crate error_chain;
 extern crate rustc_serialize;
 
-use std::process::{Command, Output};
-use std::fmt;
-
-use difference::Changeset;
+use std::process::Command;
 
 mod errors;
 use errors::*;
 
 #[macro_use] mod macros;
 pub use macros::flatten_escaped_string;
+
+mod output;
+use output::{OutputAssertion, StdErr, StdOut};
 
 mod diff;
 
@@ -127,38 +127,8 @@ pub struct Assert {
     cmd: Vec<String>,
     expect_success: Option<bool>,
     expect_exit_code: Option<i32>,
-    expect_stdout: Option<OutputAssertion>,
-    expect_stderr: Option<OutputAssertion>,
-}
-
-#[derive(Debug)]
-struct OutputAssertion {
-    expect: String,
-    fuzzy: bool,
-}
-
-#[derive(Debug, Copy, Clone)]
-enum OutputType {
-    StdOut,
-    StdErr,
-}
-
-impl OutputType {
-    fn select<'a>(&self, o: &'a Output) -> &'a [u8] {
-        match *self {
-            OutputType::StdOut => &o.stdout,
-            OutputType::StdErr => &o.stderr,
-        }
-    }
-}
-
-impl fmt::Display for OutputType {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            OutputType::StdOut => write!(f, "stdout"),
-            OutputType::StdErr => write!(f, "stderr"),
-        }
-    }
+    expect_stdout: Option<OutputAssertion<StdOut>>,
+    expect_stderr: Option<OutputAssertion<StdErr>>,
 }
 
 impl std::default::Default for Assert {
@@ -318,6 +288,7 @@ impl Assert {
         self.expect_stdout = Some(OutputAssertion {
             expect: output.into(),
             fuzzy: true,
+            kind: StdOut,
         });
         self
     }
@@ -337,6 +308,7 @@ impl Assert {
         self.expect_stdout = Some(OutputAssertion {
             expect: output.into(),
             fuzzy: false,
+            kind: StdOut,
         });
         self
     }
@@ -358,6 +330,7 @@ impl Assert {
         self.expect_stderr = Some(OutputAssertion {
             expect: output.into(),
             fuzzy: true,
+            kind: StdErr,
         });
         self
     }
@@ -379,6 +352,7 @@ impl Assert {
         self.expect_stderr = Some(OutputAssertion {
             expect: output.into(),
             fuzzy: false,
+            kind: StdErr,
         });
         self
     }
@@ -421,52 +395,17 @@ impl Assert {
             ));
         }
 
-        self.assert_output(OutputType::StdOut, &output)?;
-        self.assert_output(OutputType::StdErr, &output)?;
+        if let Some(ref ouput_assertion) = self.expect_stdout {
+            ouput_assertion.execute(&output)
+                .map_err(|e| ErrorKind::StdoutMismatch(self.cmd.clone(), e))?;
+        }
+
+        if let Some(ref ouput_assertion) = self.expect_stderr {
+            ouput_assertion.execute(&output)
+                .map_err(|e| ErrorKind::StderrMismatch(self.cmd.clone(), e))?;
+        }
 
         Ok(())
-    }
-
-    /// Perform the appropriate output assertion.
-    fn assert_output(&self, output_type: OutputType, output: &Output) -> Result<()> {
-        let observed = String::from_utf8_lossy(output_type.select(output));
-        match *self.expect_output(output_type) {
-            Some(OutputAssertion {
-                expect: ref expected_output,
-                fuzzy: true,
-            }) if !observed.contains(expected_output) => {
-                bail!(ErrorKind::OutputMismatch(
-                    output_type.to_string(),
-                    self.cmd.clone(),
-                    expected_output.clone(),
-                    observed.into(),
-                ));
-            },
-            Some(OutputAssertion {
-                expect: ref expected_output,
-                fuzzy: false,
-            }) => {
-                let differences = Changeset::new(expected_output.trim(), observed.trim(), "\n");
-                if differences.distance > 0 {
-                    let nice_diff = diff::render(&differences)?;
-                    bail!(ErrorKind::ExactOutputMismatch(
-                        output_type.to_string(),
-                        self.cmd.clone(),
-                        nice_diff
-                    ));
-                }
-            },
-            _ => {},
-        }
-        Ok(())
-    }
-
-    /// Return a reference to the appropriate output assertion.
-    fn expect_output(&self, output_type: OutputType) -> &Option<OutputAssertion> {
-        match output_type {
-            OutputType::StdOut => &self.expect_stdout,
-            OutputType::StdErr => &self.expect_stderr,
-        }
     }
 
     /// Execute the command, check the assertions, and panic when they fail.
