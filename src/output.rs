@@ -85,13 +85,12 @@ impl OutputType for StdErr {
 mod errors {
     error_chain! {
         foreign_links {
-            // Io(::std::io::Error);
             Fmt(::std::fmt::Error);
         }
         errors {
             OutputMismatch(expected: String, got: String) {
                 description("Output was not as expected")
-                display("expected {:?}, got {:?}", expected, got)
+                display("expected to contain {:?}, got {:?}", expected, got)
             }
             ExactOutputMismatch(diff: String) {
                 description("Output was not as expected")
