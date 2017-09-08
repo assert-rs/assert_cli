@@ -102,8 +102,7 @@
 //! # }
 //! ```
 
-#![deny(warnings, missing_docs)]
-#![allow(unused_doc_comment)]
+#![deny(missing_docs)]
 
 extern crate difference;
 #[macro_use] extern crate error_chain;
