@@ -109,6 +109,7 @@ extern crate difference;
 extern crate rustc_serialize;
 
 use std::process::Command;
+use std::path::PathBuf;
 
 mod errors;
 use errors::*;
@@ -125,6 +126,7 @@ mod diff;
 #[derive(Debug)]
 pub struct Assert {
     cmd: Vec<String>,
+    current_dir: Option<PathBuf>,
     expect_success: Option<bool>,
     expect_exit_code: Option<i32>,
     expect_stdout: Option<OutputAssertion<StdOut>>,
@@ -139,6 +141,7 @@ impl std::default::Default for Assert {
         Assert {
             cmd: vec!["cargo", "run", "--"]
                 .into_iter().map(String::from).collect(),
+            current_dir: None,
             expect_success: Some(true),
             expect_exit_code: None,
             expect_stdout: None,
@@ -199,6 +202,24 @@ impl Assert {
     /// ```
     pub fn with_args(mut self, args: &[&str]) -> Self {
         self.cmd.extend(args.into_iter().cloned().map(String::from));
+        self
+    }
+
+    /// Sets the working directory for the command.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["wc", "lib.rs"])
+    ///     .current_dir(std::path::Path::new("src"))
+    ///     .prints("lib.rs")
+    ///     .execute()
+    ///     .unwrap();
+    /// ```
+    pub fn current_dir<P: Into<PathBuf>>(mut self, dir: P) -> Self {
+        self.current_dir = Some(dir.into());
         self
     }
 
@@ -374,6 +395,10 @@ impl Assert {
         let args: Vec<_> = self.cmd.iter().skip(1).collect();
         let mut command = Command::new(cmd);
         let command = command.args(&args);
+        let command = match self.current_dir {
+            Some(ref dir) => command.current_dir(dir),
+            None => command
+        };
         let output = command.output()?;
 
 
