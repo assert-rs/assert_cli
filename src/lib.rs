@@ -103,6 +103,7 @@
 //! ```
 
 #![deny(warnings, missing_docs)]
+#![allow(unused_doc_comment)]
 
 extern crate difference;
 #[macro_use] extern crate error_chain;
