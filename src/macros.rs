@@ -1,5 +1,5 @@
 use std::borrow::Cow;
-use rustc_serialize::json::Json;
+use serde_json;
 
 /// Easily construct an `Assert` with a custom command.
 ///
@@ -50,10 +50,8 @@ macro_rules! assert_cmd {
 /// If `x` can not be decoded as `String`.
 #[doc(hidden)]
 fn deserialize_json_string(x: &str) -> String {
-    match Json::from_str(x).expect(&format!("Unable to deserialize `{:?}` as string.", x)) {
-        Json::String(deserialized) => deserialized,
-        _ => panic!("Unable to deserialize `{:?}` as string.", x),
-    }
+    serde_json::from_str(x)
+        .expect(&format!("Unable to deserialize `{:?}` as string.", x))
 }
 
 /// Deserialize a JSON-encoded `String`.
@@ -98,4 +96,33 @@ macro_rules! __assert_single_token_expression {
     (@CHECK $x:expr) => { };
     // little helper
     (@DENY) => { };
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn flatten_unquoted()
+    {
+        assert_eq!(
+            flatten_escaped_string("hello world"),
+            "hello world");
+    }
+
+    #[test]
+    fn flatten_quoted()
+    {
+        assert_eq!(
+            flatten_escaped_string(r#""hello world""#),
+            "hello world");
+    }
+
+    #[test]
+    fn flatten_escaped()
+    {
+        assert_eq!(
+            flatten_escaped_string(r#""hello world \u0042 A""#),
+            "hello world B A");
+    }
 }

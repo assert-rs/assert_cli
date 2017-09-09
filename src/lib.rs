@@ -106,7 +106,7 @@
 
 extern crate difference;
 #[macro_use] extern crate error_chain;
-extern crate rustc_serialize;
+extern crate serde_json;
 
 mod errors;
 
