@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::vec::Vec;
 
 use errors::*;
-use output::{OutputAssertion, StdErr, StdOut};
+use output::{OutputAssertion, OutputKind};
 
 /// Assertions for a specific command.
 #[derive(Debug)]
@@ -13,8 +13,7 @@ pub struct Assert {
     current_dir: Option<PathBuf>,
     expect_success: Option<bool>,
     expect_exit_code: Option<i32>,
-    expect_stdout: Vec<OutputAssertion<StdOut>>,
-    expect_stderr: Vec<OutputAssertion<StdErr>>,
+    expect_output: Vec<OutputAssertion>,
 }
 
 impl default::Default for Assert {
@@ -28,8 +27,7 @@ impl default::Default for Assert {
             current_dir: None,
             expect_success: Some(true),
             expect_exit_code: None,
-            expect_stdout: vec![],
-            expect_stderr: vec![],
+            expect_output: vec![],
         }
     }
 }
@@ -190,11 +188,11 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn prints<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stdout.push(OutputAssertion {
+        self.expect_output.push(OutputAssertion {
             expect: output.into(),
             fuzzy: true,
             expected_result: true,
-            kind: StdOut,
+            kind: OutputKind::StdOut,
         });
         self
     }
@@ -211,11 +209,11 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn prints_exactly<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stdout.push(OutputAssertion {
+        self.expect_output.push(OutputAssertion {
             expect: output.into(),
             fuzzy: false,
             expected_result: true,
-            kind: StdOut,
+            kind: OutputKind::StdOut,
         });
         self
     }
@@ -234,11 +232,11 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn prints_error<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stderr.push(OutputAssertion {
+        self.expect_output.push(OutputAssertion {
             expect: output.into(),
             fuzzy: true,
             expected_result: true,
-            kind: StdErr,
+            kind: OutputKind::StdErr,
         });
         self
     }
@@ -257,11 +255,11 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn prints_error_exactly<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stderr.push(OutputAssertion {
+        self.expect_output.push(OutputAssertion {
             expect: output.into(),
             fuzzy: false,
             expected_result: true,
-            kind: StdErr,
+            kind: OutputKind::StdErr,
         });
         self
     }
@@ -279,11 +277,11 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn doesnt_print<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stdout.push(OutputAssertion {
+        self.expect_output.push(OutputAssertion {
             expect: output.into(),
             fuzzy: true,
             expected_result: false,
-            kind: StdOut,
+            kind: OutputKind::StdOut,
         });
         self
     }
@@ -301,11 +299,11 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn doesnt_print_exactly<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stdout.push(OutputAssertion {
+        self.expect_output.push(OutputAssertion {
             expect: output.into(),
             fuzzy: false,
             expected_result: false,
-            kind: StdOut,
+            kind: OutputKind::StdOut,
         });
         self
     }
@@ -325,11 +323,11 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn doesnt_print_error<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stderr.push(OutputAssertion {
+        self.expect_output.push(OutputAssertion {
             expect: output.into(),
             fuzzy: true,
             expected_result: false,
-            kind: StdErr,
+            kind: OutputKind::StdErr,
         });
         self
     }
@@ -349,11 +347,11 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn doesnt_print_error_exactly<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stderr.push(OutputAssertion {
+        self.expect_output.push(OutputAssertion {
             expect: output.into(),
             fuzzy: false,
             expected_result: false,
-            kind: StdErr,
+            kind: OutputKind::StdErr,
         });
         self
     }
@@ -399,13 +397,9 @@ impl Assert {
             ));
         }
 
-        self.expect_stdout
+        self.expect_output
             .iter()
-            .map(|a| a.execute(&output).map_err(|e| ErrorKind::StdoutMismatch(self.cmd.clone(), e).into()))
-            .collect::<Result<Vec<()>>>()?;
-        self.expect_stderr
-            .iter()
-            .map(|a| a.execute(&output).map_err(|e| ErrorKind::StderrMismatch(self.cmd.clone(), e).into()))
+            .map(|a| a.execute(&output, &self.cmd))
             .collect::<Result<Vec<()>>>()?;
 
         Ok(())
