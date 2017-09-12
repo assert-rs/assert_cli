@@ -1,6 +1,7 @@
 use std::default;
 use std::process::Command;
 use std::path::PathBuf;
+use std::vec::Vec;
 
 use errors::*;
 use output::{OutputAssertion, StdErr, StdOut};
@@ -12,8 +13,8 @@ pub struct Assert {
     current_dir: Option<PathBuf>,
     expect_success: Option<bool>,
     expect_exit_code: Option<i32>,
-    expect_stdout: Option<OutputAssertion<StdOut>>,
-    expect_stderr: Option<OutputAssertion<StdErr>>,
+    expect_stdout: Vec<OutputAssertion<StdOut>>,
+    expect_stderr: Vec<OutputAssertion<StdErr>>,
 }
 
 impl default::Default for Assert {
@@ -27,8 +28,8 @@ impl default::Default for Assert {
             current_dir: None,
             expect_success: Some(true),
             expect_exit_code: None,
-            expect_stdout: None,
-            expect_stderr: None,
+            expect_stdout: vec![],
+            expect_stderr: vec![],
         }
     }
 }
@@ -189,7 +190,7 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn prints<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stdout = Some(OutputAssertion {
+        self.expect_stdout.push(OutputAssertion {
             expect: output.into(),
             fuzzy: true,
             expected_result: true,
@@ -210,7 +211,7 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn prints_exactly<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stdout = Some(OutputAssertion {
+        self.expect_stdout.push(OutputAssertion {
             expect: output.into(),
             fuzzy: false,
             expected_result: true,
@@ -233,7 +234,7 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn prints_error<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stderr = Some(OutputAssertion {
+        self.expect_stderr.push(OutputAssertion {
             expect: output.into(),
             fuzzy: true,
             expected_result: true,
@@ -256,7 +257,7 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn prints_error_exactly<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stderr = Some(OutputAssertion {
+        self.expect_stderr.push(OutputAssertion {
             expect: output.into(),
             fuzzy: false,
             expected_result: true,
@@ -278,7 +279,7 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn doesnt_print<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stdout = Some(OutputAssertion {
+        self.expect_stdout.push(OutputAssertion {
             expect: output.into(),
             fuzzy: true,
             expected_result: false,
@@ -300,7 +301,7 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn doesnt_print_exactly<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stdout = Some(OutputAssertion {
+        self.expect_stdout.push(OutputAssertion {
             expect: output.into(),
             fuzzy: false,
             expected_result: false,
@@ -324,7 +325,7 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn doesnt_print_error<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stderr = Some(OutputAssertion {
+        self.expect_stderr.push(OutputAssertion {
             expect: output.into(),
             fuzzy: true,
             expected_result: false,
@@ -348,7 +349,7 @@ impl Assert {
     ///     .unwrap();
     /// ```
     pub fn doesnt_print_error_exactly<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_stderr = Some(OutputAssertion {
+        self.expect_stderr.push(OutputAssertion {
             expect: output.into(),
             fuzzy: false,
             expected_result: false,
@@ -380,7 +381,6 @@ impl Assert {
         };
         let output = command.output()?;
 
-
         if let Some(expect_success) = self.expect_success {
             if expect_success != output.status.success() {
                 bail!(ErrorKind::StatusMismatch(
@@ -399,15 +399,14 @@ impl Assert {
             ));
         }
 
-        if let Some(ref ouput_assertion) = self.expect_stdout {
-            ouput_assertion.execute(&output)
-                .map_err(|e| ErrorKind::StdoutMismatch(self.cmd.clone(), e))?;
-        }
-
-        if let Some(ref ouput_assertion) = self.expect_stderr {
-            ouput_assertion.execute(&output)
-                .map_err(|e| ErrorKind::StderrMismatch(self.cmd.clone(), e))?;
-        }
+        self.expect_stdout
+            .iter()
+            .map(|a| a.execute(&output).map_err(|e| ErrorKind::StdoutMismatch(self.cmd.clone(), e).into()))
+            .collect::<Result<Vec<()>>>()?;
+        self.expect_stderr
+            .iter()
+            .map(|a| a.execute(&output).map_err(|e| ErrorKind::StderrMismatch(self.cmd.clone(), e).into()))
+            .collect::<Result<Vec<()>>>()?;
 
         Ok(())
     }
