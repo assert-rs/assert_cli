@@ -309,6 +309,7 @@ impl Assert {
         self.expect_stdout = Some(OutputAssertion {
             expect: output.into(),
             fuzzy: true,
+            expected_result: true,
             kind: StdOut,
         });
         self
@@ -329,6 +330,7 @@ impl Assert {
         self.expect_stdout = Some(OutputAssertion {
             expect: output.into(),
             fuzzy: false,
+            expected_result: true,
             kind: StdOut,
         });
         self
@@ -351,6 +353,7 @@ impl Assert {
         self.expect_stderr = Some(OutputAssertion {
             expect: output.into(),
             fuzzy: true,
+            expected_result: true,
             kind: StdErr,
         });
         self
@@ -373,6 +376,99 @@ impl Assert {
         self.expect_stderr = Some(OutputAssertion {
             expect: output.into(),
             fuzzy: false,
+            expected_result: true,
+            kind: StdErr,
+        });
+        self
+    }
+
+    /// Expect the command's output to not **contain** `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .doesnt_print("73")
+    ///     .execute()
+    ///     .unwrap();
+    /// ```
+    pub fn doesnt_print<O: Into<String>>(mut self, output: O) -> Self {
+        self.expect_stdout = Some(OutputAssertion {
+            expect: output.into(),
+            fuzzy: true,
+            expected_result: false,
+            kind: StdOut,
+        });
+        self
+    }
+
+    /// Expect the command to output to not be **exactly** this `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .doesnt_print_exactly("73")
+    ///     .execute()
+    ///     .unwrap();
+    /// ```
+    pub fn doesnt_print_exactly<O: Into<String>>(mut self, output: O) -> Self {
+        self.expect_stdout = Some(OutputAssertion {
+            expect: output.into(),
+            fuzzy: false,
+            expected_result: false,
+            kind: StdOut,
+        });
+        self
+    }
+
+    /// Expect the command's stderr output to not **contain** `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    ///     .fails()
+    ///     .and()
+    ///     .doesnt_print_error("content")
+    ///     .execute()
+    ///     .unwrap();
+    /// ```
+    pub fn doesnt_print_error<O: Into<String>>(mut self, output: O) -> Self {
+        self.expect_stderr = Some(OutputAssertion {
+            expect: output.into(),
+            fuzzy: true,
+            expected_result: false,
+            kind: StdErr,
+        });
+        self
+    }
+
+    /// Expect the command to output to not be **exactly** this `output` to stderr.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    ///     .fails_with(1)
+    ///     .and()
+    ///     .doesnt_print_error_exactly("content")
+    ///     .execute()
+    ///     .unwrap();
+    /// ```
+    pub fn doesnt_print_error_exactly<O: Into<String>>(mut self, output: O) -> Self {
+        self.expect_stderr = Some(OutputAssertion {
+            expect: output.into(),
+            fuzzy: false,
+            expected_result: false,
             kind: StdErr,
         });
         self
