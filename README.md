@@ -21,7 +21,7 @@ Here's a trivial example:
 extern crate assert_cli;
 
 fn main() {
-    assert_cli::Assert::command(&["echo", "42"]).prints("42").unwrap();
+    assert_cli::Assert::command(&["echo", "42"]).stdout().contains("42").unwrap();
 }
 ```
 
@@ -31,7 +31,7 @@ Or if you'd rather use the macro, to save you some writing:
 #[macro_use] extern crate assert_cli;
 
 fn main() {
-    assert_cmd!(echo "42").prints("42").unwrap();
+    assert_cmd!(echo "42").stdout().contains("42").unwrap();
 }
 ```
 
@@ -45,21 +45,21 @@ fn main() {
     let test = assert_cmd!(ls "foo-bar-foo")
         .fails()
         .and()
-        .prints_error("foo-bar-foo")
+        .stderr().contains("foo-bar-foo")
         .execute();
     assert!(test.is_ok());
 }
 ```
 
 If you want to match the program's output _exactly_, you can use
-`prints_exactly`:
+`stdout().is`:
 
 ```rust,should_panic
 #[macro_use] extern crate assert_cli;
 
 fn main() {
     assert_cmd!(wc "README.md")
-        .prints_exactly("1337 README.md")
+        .stdout().is("1337 README.md")
         .unwrap();
 }
 ```

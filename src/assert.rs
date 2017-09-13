@@ -79,7 +79,7 @@ impl Assert {
     ///
     /// assert_cli::Assert::command(&["echo"])
     ///     .with_args(&["42"])
-    ///     .prints("42")
+    ///     .stdout().contains("42")
     ///     .unwrap();
     /// ```
     pub fn with_args(mut self, args: &[&str]) -> Self {
@@ -96,7 +96,7 @@ impl Assert {
     ///
     /// assert_cli::Assert::command(&["wc", "lib.rs"])
     ///     .current_dir(std::path::Path::new("src"))
-    ///     .prints("lib.rs")
+    ///     .stdout().contains("lib.rs")
     ///     .execute()
     ///     .unwrap();
     /// ```
@@ -113,7 +113,7 @@ impl Assert {
     /// extern crate assert_cli;
     ///
     /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .prints("42")
+    ///     .stdout().contains("42")
     ///     .unwrap();
     /// ```
     pub fn and(self) -> Self {
@@ -149,7 +149,7 @@ impl Assert {
     /// assert_cli::Assert::command(&["cat", "non-existing-file"])
     ///     .fails()
     ///     .and()
-    ///     .prints_error("non-existing-file")
+    ///     .stderr().contains("non-existing-file")
     ///     .unwrap();
     /// ```
     pub fn fails(mut self) -> Self {
@@ -167,7 +167,7 @@ impl Assert {
     /// assert_cli::Assert::command(&["cat", "non-existing-file"])
     ///     .fails_with(1)
     ///     .and()
-    ///     .prints_error_exactly("cat: non-existing-file: No such file or directory")
+    ///     .stderr().is("cat: non-existing-file: No such file or directory")
     ///     .unwrap();
     /// ```
     pub fn fails_with(mut self, expect_exit_code: i32) -> Self {
@@ -176,7 +176,7 @@ impl Assert {
         self
     }
 
-    /// Expect the command's output to **contain** `output`.
+    /// Create an assertion for stdout's contents
     ///
     /// # Examples
     ///
@@ -184,64 +184,18 @@ impl Assert {
     /// extern crate assert_cli;
     ///
     /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .prints("42")
+    ///     .stdout().contains("42")
     ///     .unwrap();
     /// ```
-    pub fn prints<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_output.push(OutputAssertion {
-            expect: output.into(),
-            fuzzy: true,
-            expected_result: true,
+    pub fn stdout(self) -> OutputAssertionBuilder {
+        OutputAssertionBuilder {
+            assertion: self,
             kind: OutputKind::StdOut,
-        });
-        self
-    }
-
-    /// Expect the command to output **exactly** this `output`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// extern crate assert_cli;
-    ///
-    /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .prints_exactly("42")
-    ///     .unwrap();
-    /// ```
-    pub fn prints_exactly<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_output.push(OutputAssertion {
-            expect: output.into(),
-            fuzzy: false,
             expected_result: true,
-            kind: OutputKind::StdOut,
-        });
-        self
+        }
     }
 
-    /// Expect the command's stderr output to **contain** `output`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// extern crate assert_cli;
-    ///
-    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
-    ///     .fails()
-    ///     .and()
-    ///     .prints_error("non-existing-file")
-    ///     .unwrap();
-    /// ```
-    pub fn prints_error<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_output.push(OutputAssertion {
-            expect: output.into(),
-            fuzzy: true,
-            expected_result: true,
-            kind: OutputKind::StdErr,
-        });
-        self
-    }
-
-    /// Expect the command to output **exactly** this `output` to stderr.
+    /// Create an assertion for stdout's contents
     ///
     /// # Examples
     ///
@@ -251,109 +205,15 @@ impl Assert {
     /// assert_cli::Assert::command(&["cat", "non-existing-file"])
     ///     .fails_with(1)
     ///     .and()
-    ///     .prints_error_exactly("cat: non-existing-file: No such file or directory")
+    ///     .stderr().is("cat: non-existing-file: No such file or directory")
     ///     .unwrap();
     /// ```
-    pub fn prints_error_exactly<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_output.push(OutputAssertion {
-            expect: output.into(),
-            fuzzy: false,
+    pub fn stderr(self) -> OutputAssertionBuilder {
+        OutputAssertionBuilder {
+            assertion: self,
+            kind: OutputKind::StdErr,
             expected_result: true,
-            kind: OutputKind::StdErr,
-        });
-        self
-    }
-
-    /// Expect the command's output to not **contain** `output`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// extern crate assert_cli;
-    ///
-    /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .doesnt_print("73")
-    ///     .execute()
-    ///     .unwrap();
-    /// ```
-    pub fn doesnt_print<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_output.push(OutputAssertion {
-            expect: output.into(),
-            fuzzy: true,
-            expected_result: false,
-            kind: OutputKind::StdOut,
-        });
-        self
-    }
-
-    /// Expect the command to output to not be **exactly** this `output`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// extern crate assert_cli;
-    ///
-    /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .doesnt_print_exactly("73")
-    ///     .execute()
-    ///     .unwrap();
-    /// ```
-    pub fn doesnt_print_exactly<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_output.push(OutputAssertion {
-            expect: output.into(),
-            fuzzy: false,
-            expected_result: false,
-            kind: OutputKind::StdOut,
-        });
-        self
-    }
-
-    /// Expect the command's stderr output to not **contain** `output`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// extern crate assert_cli;
-    ///
-    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
-    ///     .fails()
-    ///     .and()
-    ///     .doesnt_print_error("content")
-    ///     .execute()
-    ///     .unwrap();
-    /// ```
-    pub fn doesnt_print_error<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_output.push(OutputAssertion {
-            expect: output.into(),
-            fuzzy: true,
-            expected_result: false,
-            kind: OutputKind::StdErr,
-        });
-        self
-    }
-
-    /// Expect the command to output to not be **exactly** this `output` to stderr.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// extern crate assert_cli;
-    ///
-    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
-    ///     .fails_with(1)
-    ///     .and()
-    ///     .doesnt_print_error_exactly("content")
-    ///     .execute()
-    ///     .unwrap();
-    /// ```
-    pub fn doesnt_print_error_exactly<O: Into<String>>(mut self, output: O) -> Self {
-        self.expect_output.push(OutputAssertion {
-            expect: output.into(),
-            fuzzy: false,
-            expected_result: false,
-            kind: OutputKind::StdErr,
-        });
-        self
+        }
     }
 
     /// Execute the command and check the assertions.
@@ -364,7 +224,7 @@ impl Assert {
     /// extern crate assert_cli;
     ///
     /// let test = assert_cli::Assert::command(&["echo", "42"])
-    ///     .prints("42")
+    ///     .stdout().contains("42")
     ///     .execute();
     /// assert!(test.is_ok());
     /// ```
@@ -420,5 +280,102 @@ impl Assert {
         if let Err(err) = self.execute() {
             panic!("{}", err);
         }
+    }
+}
+
+#[derive(Debug)]
+pub struct OutputAssertionBuilder {
+    pub assertion: Assert,
+    pub kind: OutputKind,
+    pub expected_result: bool,
+}
+
+impl OutputAssertionBuilder {
+    /// Negate the assertion predicate
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .stdout().not().contains("73")
+    ///     .unwrap();
+    /// ```
+    pub fn not(mut self) -> Self {
+        self.expected_result = ! self.expected_result;
+        self
+    }
+
+    /// Expect the command's output to **contain** `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .stdout().contains("42")
+    ///     .unwrap();
+    /// ```
+    pub fn contains<O: Into<String>>(mut self, output: O) -> Assert {
+        self.assertion.expect_output.push(OutputAssertion {
+            expect: output.into(),
+            fuzzy: true,
+            expected_result: self.expected_result,
+            kind: self.kind,
+        });
+        self.assertion
+    }
+
+    /// Expect the command to output **exactly** this `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .stdout().is("42")
+    ///     .unwrap();
+    /// ```
+    pub fn is<O: Into<String>>(mut self, output: O) -> Assert {
+        self.assertion.expect_output.push(OutputAssertion {
+            expect: output.into(),
+            fuzzy: false,
+            expected_result: self.expected_result,
+            kind: self.kind,
+        });
+        self.assertion
+    }
+
+    /// Expect the command's output to not **contain** `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .stdout().doesnt_contain("73")
+    ///     .unwrap();
+    /// ```
+    pub fn doesnt_contain<O: Into<String>>(self, output: O) -> Assert {
+        self.not().contains(output)
+    }
+
+    /// Expect the command to output to not be **exactly** this `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .stdout().isnt("73")
+    ///     .unwrap();
+    /// ```
+    pub fn isnt<O: Into<String>>(self, output: O) -> Assert {
+        self.not().is(output)
     }
 }

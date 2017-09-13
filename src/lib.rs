@@ -18,7 +18,7 @@
 //!
 //! ```rust
 //! assert_cli::Assert::command(&["echo", "42"])
-//!     .prints("42")
+//!     .stdout().contains("42")
 //!     .unwrap();
 //! ```
 //!
@@ -26,7 +26,7 @@
 //!
 //! ```rust,should_panic
 //! assert_cli::Assert::command(&["echo", "42"])
-//!     .prints_exactly("1337")
+//!     .stdout().is("1337")
 //!     .unwrap();
 //! ```
 //!
@@ -45,7 +45,7 @@
 //! ```rust
 //! # #[macro_use] extern crate assert_cli;
 //! # fn main() {
-//! assert_cmd!(echo "42").prints("42").unwrap();
+//! assert_cmd!(echo "42").stdout().contains("42").unwrap();
 //! # }
 //! ```
 //!
@@ -68,7 +68,7 @@
 //! assert_cmd!(cat "non-existing-file")
 //!     .fails()
 //!     .and()
-//!     .prints_error("non-existing-file")
+//!     .stderr().contains("non-existing-file")
 //!     .unwrap();
 //! # }
 //! ```
@@ -78,7 +78,7 @@
 //! - Use `fails_with` to assert a specific exit status.
 //! - There is also a `succeeds` method, but this is already the implicit default
 //!   and can usually be omitted.
-//! - We can inspect the output of **stderr** with `prints_error` and `prints_error_exactly`.
+//! - We can inspect the output of **stderr** with `stderr().contains` and `stderr().is`.
 //! - The `and` method has no effect, other than to make everything more readable.
 //!   Feel free to use it. :-)
 //!
@@ -97,7 +97,7 @@
 //! ```rust
 //! # #[macro_use] extern crate assert_cli;
 //! # fn main() {
-//! let x = assert_cmd!(echo "1337").prints_exactly("42").execute();
+//! let x = assert_cmd!(echo "1337").stdout().is("42").execute();
 //! assert!(x.is_err());
 //! # }
 //! ```

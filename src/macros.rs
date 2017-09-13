@@ -22,7 +22,7 @@ use serde_json;
 /// # fn main() {
 /// assert_cmd!(echo "Launch sequence initiated.\nNo errors whatsoever!\n")
 ///     .succeeds()
-///     .prints("No errors whatsoever")
+///     .stdout().contains("No errors whatsoever")
 ///     .unwrap();
 /// # }
 /// ```
