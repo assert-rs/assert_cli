@@ -283,11 +283,12 @@ impl Assert {
     }
 }
 
+/// Assertions for command output.
 #[derive(Debug)]
 pub struct OutputAssertionBuilder {
-    pub assertion: Assert,
-    pub kind: OutputKind,
-    pub expected_result: bool,
+    assertion: Assert,
+    kind: OutputKind,
+    expected_result: bool,
 }
 
 impl OutputAssertionBuilder {

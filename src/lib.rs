@@ -67,8 +67,6 @@
 //! # fn main() {
 //! assert_cmd!(cat "non-existing-file")
 //!     .fails()
-//!     .and()
-//!     .stderr().contains("non-existing-file")
 //!     .unwrap();
 //! # }
 //! ```
@@ -78,9 +76,24 @@
 //! - Use `fails_with` to assert a specific exit status.
 //! - There is also a `succeeds` method, but this is already the implicit default
 //!   and can usually be omitted.
-//! - We can inspect the output of **stderr** with `stderr().contains` and `stderr().is`.
 //! - The `and` method has no effect, other than to make everything more readable.
 //!   Feel free to use it. :-)
+//!
+//! ## stdout / stderr
+//!
+//! You can add assertions on the content of **stdout** and **stderr**.  They
+//! can be mixed together or even multiple of one stream can be used.
+//!
+//! ```rust
+//! # #[macro_use] extern crate assert_cli;
+//! # fn main() {
+//! assert_cmd!(echo "Hello world! The ansswer is 42.")
+//!     .stdout().contains("Hello world")
+//!     .stdout().contains("42")
+//!     .stderr().is("")
+//!     .unwrap();
+//! # }
+//! ```
 //!
 //! ## Assert CLI Crates
 //!
@@ -119,3 +132,4 @@ mod diff;
 
 mod assert;
 pub use assert::Assert;
+pub use assert::OutputAssertionBuilder;
