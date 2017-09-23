@@ -19,6 +19,7 @@ before_script:
 script:
 - |
   travis-cargo build &&
+  travis-cargo clean &&
   travis-cargo test &&
   travis-cargo bench
 notifications:
