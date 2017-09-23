@@ -10,7 +10,7 @@ Just add it to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-assert_cli = "0.4"
+assert_cli = "0.5"
 ```
 
 ## Example
