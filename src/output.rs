@@ -1,4 +1,3 @@
-use std::fmt;
 use std::process::Output;
 
 use difference::Changeset;
@@ -8,14 +7,14 @@ pub use self::errors::{Error, ErrorKind};
 use diff;
 
 #[derive(Debug, Clone)]
-pub struct OutputAssertion<T> {
+pub struct OutputAssertion {
     pub expect: String,
     pub fuzzy: bool,
     pub expected_result: bool,
-    pub kind: T,
+    pub kind: OutputKind,
 }
 
-impl<T: OutputType> OutputAssertion<T> {
+impl OutputAssertion {
     fn matches_fuzzy(&self, got: &str) -> Result<()> {
         let result = got.contains(&self.expect);
         if result != self.expected_result {
@@ -45,51 +44,37 @@ impl<T: OutputType> OutputAssertion<T> {
         Ok(())
     }
 
-    pub fn execute(&self, output: &Output) -> Result<()> {
+    pub fn execute(&self, output: &Output, cmd: &[String]) -> super::errors::Result<()> {
         let observed = String::from_utf8_lossy(self.kind.select(output));
 
-        if self.fuzzy {
+        let result = if self.fuzzy {
             self.matches_fuzzy(&observed)
         } else {
             self.matches_exact(&observed)
+        };
+        result.map_err(|e| self.kind.map_err(e, cmd))
+    }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum OutputKind {
+    StdOut,
+    StdErr,
+}
+
+impl OutputKind {
+    pub fn select<'a>(self, o: &'a Output) -> &'a [u8] {
+        match self {
+            OutputKind::StdOut => &o.stdout,
+            OutputKind::StdErr => &o.stderr,
         }
     }
-}
 
-
-pub trait OutputType: fmt::Display {
-    fn select<'a>(&self, o: &'a Output) -> &'a [u8];
-}
-
-
-#[derive(Debug, Clone, Copy)]
-pub struct StdOut;
-
-impl fmt::Display for StdOut {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "stdout")
-    }
-}
-
-impl OutputType for StdOut {
-    fn select<'a>(&self, o: &'a Output) -> &'a [u8] {
-        &o.stdout
-    }
-}
-
-
-#[derive(Debug, Clone, Copy)]
-pub struct StdErr;
-
-impl fmt::Display for StdErr {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "stderr")
-    }
-}
-
-impl OutputType for StdErr {
-    fn select<'a>(&self, o: &'a Output) -> &'a [u8] {
-        &o.stderr
+    pub fn map_err(self, e: Error, cmd: &[String]) -> super::errors::Error {
+        match self {
+            OutputKind::StdOut => super::errors::ErrorKind::StdoutMismatch(cmd.to_vec(), e).into(),
+            OutputKind::StdErr => super::errors::ErrorKind::StderrMismatch(cmd.to_vec(), e).into(),
+        }
     }
 }
 
