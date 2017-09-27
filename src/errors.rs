@@ -30,18 +30,11 @@ error_chain! {
                 err,
             )
         }
-        StdoutMismatch(cmd: Vec<String>, output_err: ::output::Error) {
+        OutputMismatch(cmd: Vec<String>, output_err: ::output::Error, kind: ::output::OutputKind) {
             description("Output was not as expected")
             display(
-                "{}: `{}` stdout mismatch: `{}`)",
-                ERROR_PREFIX, cmd.join(" "), output_err,
-            )
-        }
-        StderrMismatch(cmd: Vec<String>, output_err: ::output::Error) {
-            description("Error output was not as expected")
-            display(
-                "{}: `{}` stderr mismatch: `{}`)",
-                ERROR_PREFIX, cmd.join(" "), output_err,
+                "{}: `{}` {:?} mismatch: {}",
+                ERROR_PREFIX, cmd.join(" "), kind, output_err,
             )
         }
 
