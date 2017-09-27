@@ -6,38 +6,35 @@ error_chain! {
         Fmt(::std::fmt::Error);
     }
     errors {
-        StatusMismatch(cmd: Vec<String>, expected: bool) {
+        StatusMismatch(cmd: Vec<String>, expected: bool, out: String, err: String) {
             description("Wrong status")
             display(
-                "{}: (command `{}` expected to {}) (command {})",
+                "{}: (command `{}` expected to {})\nstatus={}\nstdout=```{}```\nstderr=```{}```",
                 ERROR_PREFIX,
                 cmd.join(" "),
                 expected = if *expected { "succeed" } else { "fail" },
                 got = if *expected { "failed" } else { "succeeded" },
+                out = out,
+                err = err,
             )
         }
-        ExitCodeMismatch(cmd: Vec<String>, expected: Option<i32>, got: Option<i32>) {
+        ExitCodeMismatch(cmd: Vec<String>, expected: Option<i32>, got: Option<i32>, out: String, err: String) {
             description("Wrong exit code")
             display(
-                "{}: (exit code of `{}` expected to be `{:?}`) (exit code was: `{:?}`)",
+                "{}: (exit code of `{}` expected to be `{:?}`)\nexit code=`{:?}`\nstdout=```{}```\nstderr=```{}```",
                 ERROR_PREFIX,
                 cmd.join(" "),
                 expected,
                 got,
+                out,
+                err,
             )
         }
-        StdoutMismatch(cmd: Vec<String>, output_err: ::output::Error) {
+        OutputMismatch(cmd: Vec<String>, output_err: ::output::Error, kind: ::output::OutputKind) {
             description("Output was not as expected")
             display(
-                "{}: `{}` stdout mismatch: `{}`)",
-                ERROR_PREFIX, cmd.join(" "), output_err,
-            )
-        }
-        StderrMismatch(cmd: Vec<String>, output_err: ::output::Error) {
-            description("Error output was not as expected")
-            display(
-                "{}: `{}` stderr mismatch: `{}`)",
-                ERROR_PREFIX, cmd.join(" "), output_err,
+                "{}: `{}` {:?} mismatch: {}",
+                ERROR_PREFIX, cmd.join(" "), kind, output_err,
             )
         }
 

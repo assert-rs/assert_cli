@@ -35,7 +35,7 @@ impl OutputAssertion {
         if result != self.expected_result {
             if self.expected_result {
                 let nice_diff = diff::render(&differences)?;
-                bail!(ErrorKind::OutputDoesntMatch(nice_diff));
+                bail!(ErrorKind::OutputDoesntMatch(self.expect.clone(), got.to_owned(), nice_diff));
             } else {
                 bail!(ErrorKind::OutputMatches(got.to_owned()));
             }
@@ -52,7 +52,9 @@ impl OutputAssertion {
         } else {
             self.matches_exact(&observed)
         };
-        result.map_err(|e| self.kind.map_err(e, cmd))
+        result.map_err(|e| super::errors::ErrorKind::OutputMismatch(cmd.to_vec(), e, self.kind))?;
+
+        Ok(())
     }
 }
 
@@ -69,13 +71,6 @@ impl OutputKind {
             OutputKind::StdErr => &o.stderr,
         }
     }
-
-    pub fn map_err(self, e: Error, cmd: &[String]) -> super::errors::Error {
-        match self {
-            OutputKind::StdOut => super::errors::ErrorKind::StdoutMismatch(cmd.to_vec(), e).into(),
-            OutputKind::StdErr => super::errors::ErrorKind::StderrMismatch(cmd.to_vec(), e).into(),
-        }
-    }
 }
 
 mod errors {
@@ -86,19 +81,19 @@ mod errors {
         errors {
             OutputDoesntContain(expected: String, got: String) {
                 description("Output was not as expected")
-                display("expected to contain {:?}, got {:?}", expected, got)
+                display("expected to contain {:?}\noutput=```{}```", expected, got)
             }
             OutputContains(expected: String, got: String) {
                 description("Output was not as expected")
-                display("expected to not contain {:?}, got {:?}", expected, got)
+                display("expected to not contain {:?}\noutput=```{}```", expected, got)
             }
-            OutputDoesntMatch(diff: String) {
+            OutputDoesntMatch(expected: String, got: String, diff: String) {
                 description("Output was not as expected")
-                display("{}", diff)
+                display("diff:\n{}", diff)
             }
             OutputMatches(got: String) {
                 description("Output was not as expected")
-                display("{}", got)
+                display("expected to not match\noutput=```{}```", got)
             }
         }
     }

@@ -241,19 +241,27 @@ impl Assert {
 
         if let Some(expect_success) = self.expect_success {
             if expect_success != output.status.success() {
+                let out = String::from_utf8_lossy(&output.stdout).to_string();
+                let err = String::from_utf8_lossy(&output.stderr).to_string();
                 bail!(ErrorKind::StatusMismatch(
                     self.cmd.clone(),
                     expect_success,
+                    out,
+                    err,
                 ));
             }
         }
 
         if self.expect_exit_code.is_some() &&
             self.expect_exit_code != output.status.code() {
+            let out = String::from_utf8_lossy(&output.stdout).to_string();
+            let err = String::from_utf8_lossy(&output.stderr).to_string();
             bail!(ErrorKind::ExitCodeMismatch(
                 self.cmd.clone(),
                 self.expect_exit_code,
                 output.status.code(),
+                out,
+                err,
             ));
         }
 
