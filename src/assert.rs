@@ -1,7 +1,8 @@
 use std::default;
-use std::process::Command;
+use std::process::{Command, Stdio};
 use std::path::PathBuf;
 use std::vec::Vec;
+use std::io::Write;
 
 use errors::*;
 use output::{OutputAssertion, OutputKind};
@@ -14,6 +15,7 @@ pub struct Assert {
     expect_success: Option<bool>,
     expect_exit_code: Option<i32>,
     expect_output: Vec<OutputAssertion>,
+    stdin_contents: Option<String>,
 }
 
 impl default::Default for Assert {
@@ -28,6 +30,7 @@ impl default::Default for Assert {
             expect_success: Some(true),
             expect_exit_code: None,
             expect_output: vec![],
+            stdin_contents: None,
         }
     }
 }
@@ -84,6 +87,23 @@ impl Assert {
     /// ```
     pub fn with_args(mut self, args: &[&str]) -> Self {
         self.cmd.extend(args.into_iter().cloned().map(String::from));
+        self
+    }
+
+    /// Add stdin to the command.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["cat"])
+    ///     .stdin("42")
+    ///     .stdout().contains("42")
+    ///     .unwrap();
+    /// ```
+    pub fn stdin(mut self, contents: &str) -> Self {
+        self.stdin_contents = Some(String::from(contents));
         self
     }
 
@@ -232,12 +252,22 @@ impl Assert {
         let cmd = &self.cmd[0];
         let args: Vec<_> = self.cmd.iter().skip(1).collect();
         let mut command = Command::new(cmd);
+        let command = command
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
         let command = command.args(&args);
         let command = match self.current_dir {
             Some(ref dir) => command.current_dir(dir),
             None => command,
         };
-        let output = command.output()?;
+
+        let mut spawned = command.spawn()?;
+
+        if let Some(ref contents) = self.stdin_contents {
+            spawned.stdin.as_mut().expect("Couldn't get mut ref to command stdin").write_all(contents.as_bytes())?;
+        }
+        let output = spawned.wait_with_output()?;
 
         if let Some(expect_success) = self.expect_success {
             if expect_success != output.status.success() {
