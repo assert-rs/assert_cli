@@ -341,6 +341,8 @@ impl OutputAssertionBuilder {
     ///     .stdout().not().contains("73")
     ///     .unwrap();
     /// ```
+    // No clippy, we don't want to implement std::ops::Not :)
+    #[cfg_attr(feature = "cargo-clippy", allow(should_implement_trait))]
     pub fn not(mut self) -> Self {
         self.expected_result = ! self.expected_result;
         self

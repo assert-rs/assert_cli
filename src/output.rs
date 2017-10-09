@@ -65,7 +65,7 @@ pub enum OutputKind {
 }
 
 impl OutputKind {
-    pub fn select<'a>(self, o: &'a Output) -> &'a [u8] {
+    pub fn select(self, o: &Output) -> &[u8] {
         match self {
             OutputKind::StdOut => &o.stdout,
             OutputKind::StdErr => &o.stderr,
