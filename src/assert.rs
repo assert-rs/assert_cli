@@ -1,3 +1,4 @@
+use environment::Environment;
 use errors::*;
 use output::{OutputAssertion, OutputKind};
 use std::default;
@@ -10,6 +11,7 @@ use std::vec::Vec;
 #[derive(Debug)]
 pub struct Assert {
     cmd: Vec<String>,
+    env: Environment,
     current_dir: Option<PathBuf>,
     expect_success: Option<bool>,
     expect_exit_code: Option<i32>,
@@ -27,6 +29,7 @@ impl default::Default for Assert {
                 .into_iter()
                 .map(String::from)
                 .collect(),
+            env: Environment::inherit(),
             current_dir: None,
             expect_success: Some(true),
             expect_exit_code: None,
@@ -87,6 +90,7 @@ impl Assert {
     ///     .with_args(&["42"])
     ///     .stdout().contains("42")
     ///     .unwrap();
+    ///
     /// ```
     pub fn with_args(mut self, args: &[&str]) -> Self {
         self.cmd.extend(args.into_iter().cloned().map(String::from));
@@ -125,6 +129,41 @@ impl Assert {
     /// ```
     pub fn current_dir<P: Into<PathBuf>>(mut self, dir: P) -> Self {
         self.current_dir = Some(dir.into());
+        self
+    }
+
+    /// Sets environments variables for the command.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["printenv"])
+    ///     .with_env(&[("TEST_ENV", "OK")])
+    ///     .stdout().contains("TEST_ENV=OK")
+    ///     .execute()
+    ///     .unwrap();
+    ///
+    /// let env = assert_cli::Environment::empty()
+    ///     .insert("FOO", "BAR");
+    ///
+    /// assert_cli::Assert::command(&["printenv"])
+    ///     .with_env(&env)
+    ///     .stdout().is("FOO=BAR")
+    ///     .execute()
+    ///     .unwrap();
+    ///
+    /// ::std::env::set_var("BAZ", "BAR");
+    ///
+    /// assert_cli::Assert::command(&["printenv"])
+    ///     .stdout().contains("BAZ=BAR")
+    ///     .execute()
+    ///     .unwrap();
+    /// ```
+    pub fn with_env<E: Into<Environment>>(mut self, env: E) -> Self {
+        self.env = env.into();
+
         self
     }
 
@@ -253,13 +292,17 @@ impl Assert {
     /// ```
     pub fn execute(self) -> Result<()> {
         let cmd = &self.cmd[0];
+
         let args: Vec<_> = self.cmd.iter().skip(1).collect();
         let mut command = Command::new(cmd);
         let command = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        let command = command.args(&args);
+            .stderr(Stdio::piped())
+            .env_clear()
+            .envs(self.env.clone().compile())
+            .args(&args);
+
         let command = match self.current_dir {
             Some(ref dir) => command.current_dir(dir),
             None => command,
@@ -424,5 +467,170 @@ impl OutputAssertionBuilder {
     /// ```
     pub fn isnt<O: Into<String>>(self, output: O) -> Assert {
         self.not().is(output)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::ffi::OsString;
+
+    fn command() -> Assert {
+        Assert::command(&["printenv"])
+    }
+
+    #[test]
+    fn take_ownership() {
+        let x = Environment::inherit();
+
+        command().with_env(x.clone()).with_env(&x).with_env(x);
+    }
+
+    #[test]
+    fn in_place_mod() {
+        let y = Environment::empty();
+
+        let y = y.insert("key", "value");
+
+        assert_eq!(
+            y.compile(),
+            vec![(OsString::from("key"), OsString::from("value"))]
+        );
+    }
+
+    #[test]
+    fn in_place_mod2() {
+        let x = Environment::inherit();
+
+        command()
+            .with_env(&x.insert("key", "value").insert("key", "vv"))
+            .stdout()
+            .contains("key=vv")
+            .execute()
+            .unwrap();
+        // Granted, `insert` moved `x`, so we can no longer reference it, even
+        // though only a reference was passed to `with_env`
+    }
+
+    #[test]
+    fn in_place_mod3() {
+        // In-place modification while allowing later accesses to the `Environment`
+        let y = Environment::empty();
+
+        assert_eq!(
+            y.clone().insert("key", "value").compile(),
+            vec![(OsString::from("key"), OsString::from("value"))]
+        );
+
+        command()
+            .with_env(y)
+            .stdout()
+            .not()
+            .contains("key=value")
+            .execute()
+            .unwrap();
+    }
+
+    #[test]
+    fn empty_env() {
+        // In-place modification while allowing later accesses to the `Environment`
+        let y = Environment::empty();
+
+        assert!(command().with_env(y).stdout().is("").execute().is_ok());
+    }
+    #[test]
+    fn take_vec() {
+        let v = vec![("bar".to_string(), "baz".to_string())];
+
+        command()
+            .with_env(&vec![("bar", "baz")])
+            .stdout()
+            .contains("bar=baz")
+            .execute()
+            .unwrap();
+
+        command()
+            .with_env(&v)
+            .stdout()
+            .contains("bar=baz")
+            .execute()
+            .unwrap();
+
+        command()
+            .with_env(&vec![("bar", "baz")])
+            .stdout()
+            .isnt("")
+            .execute()
+            .unwrap();
+    }
+
+    #[test]
+    fn take_slice_of_strs() {
+        command()
+            .with_env(&[("bar", "BAZ")])
+            .stdout()
+            .contains("bar=BAZ")
+            .execute()
+            .unwrap();
+
+        command()
+            .with_env(&[("bar", "BAZ")][..])
+            .stdout()
+            .contains("bar=BAZ")
+            .execute()
+            .unwrap();
+
+        command()
+            .with_env([("bar", "BAZ")].as_ref())
+            .stdout()
+            .contains("bar=BAZ")
+            .execute()
+            .unwrap();
+    }
+
+    #[test]
+    fn take_slice_of_strings() {
+        // same deal as above
+
+        command()
+            .with_env(&[("bar".to_string(), "BAZ".to_string())])
+            .stdout()
+            .contains("bar=BAZ")
+            .execute()
+            .unwrap();
+
+        command()
+            .with_env(&[("bar".to_string(), "BAZ".to_string())][..])
+            .stdout()
+            .contains("bar=BAZ")
+            .execute()
+            .unwrap();
+    }
+
+    #[test]
+    fn take_slice() {
+        command()
+            .with_env(&[("hey", "ho")])
+            .stdout()
+            .contains("hey=ho")
+            .execute()
+            .unwrap();
+
+        command()
+            .with_env(&[("hey", "ho".to_string())])
+            .stdout()
+            .contains("hey=ho")
+            .execute()
+            .unwrap();
+    }
+
+    #[test]
+    fn take_string_i32() {
+        command()
+            .with_env(&[("bar", 3 as i32)])
+            .stdout()
+            .contains("bar=3")
+            .execute()
+            .unwrap();
     }
 }

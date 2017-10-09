@@ -11,14 +11,14 @@ matrix:
     env: CLIPPY_VERS="0.0.165"
     before_script: |
       [[ "$(cargo +nightly-2017-10-09 clippy --version)" != "$CLIPPY_VERS" ]] && \
-      cargo +nightly-2017-10-09 install clippy --vers "$CLIPPY_VERS" --force
+      cargo +nightly-2017-10-09 install clippy --vers "$CLIPPY_VERS" --force || true
     script: |
       cargo +nightly-2017-10-09 clippy -- -D warnings
   - rust: nightly-2017-10-09
     env: RUSTFMT_VERS="0.2.8"
     before_script: |
       [[ "$(cargo +nightly-2017-10-09 fmt -- --version)" != "$RUSTFMT_VERS"* ]] && \
-      cargo +nightly-2017-10-09 install rustfmt-nightly --vers "$RUSTFMT_VERS" --force
+      cargo +nightly-2017-10-09 install rustfmt-nightly --vers "$RUSTFMT_VERS" --force || true
     script: |
       cargo +nightly-2017-10-09 fmt --all -- --write-mode=diff
 before_script:
