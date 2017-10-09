@@ -18,16 +18,25 @@ error_chain! {
                 err = err,
             )
         }
-        ExitCodeMismatch(cmd: Vec<String>, expected: Option<i32>, got: Option<i32>, out: String, err: String) {
+        ExitCodeMismatch(
+            cmd: Vec<String>,
+            expected: Option<i32>,
+            got: Option<i32>,
+            out: String,
+            err: String
+        ) {
             description("Wrong exit code")
             display(
-                "{}: (exit code of `{}` expected to be `{:?}`)\nexit code=`{:?}`\nstdout=```{}```\nstderr=```{}```",
-                ERROR_PREFIX,
-                cmd.join(" "),
-                expected,
-                got,
-                out,
-                err,
+                "{prefix}: (exit code of `{cmd}` expected to be `{expected:?}`)\n\
+                exit code=`{code:?}`\n\
+                stdout=```{stdout}```\n\
+                stderr=```{stderr}```",
+                prefix=ERROR_PREFIX,
+                cmd=cmd.join(" "),
+                expected=expected,
+                code=got,
+                stdout=out,
+                stderr=err,
             )
         }
         OutputMismatch(cmd: Vec<String>, output_err: ::output::Error, kind: ::output::OutputKind) {

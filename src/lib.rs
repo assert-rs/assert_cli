@@ -118,12 +118,14 @@
 #![deny(missing_docs)]
 
 extern crate difference;
-#[macro_use] extern crate error_chain;
+#[macro_use]
+extern crate error_chain;
 extern crate serde_json;
 
 mod errors;
 
-#[macro_use] mod macros;
+#[macro_use]
+mod macros;
 pub use macros::flatten_escaped_string;
 
 mod output;

@@ -1,10 +1,8 @@
-use std::process::Output;
-
-use difference::Changeset;
-
 use self::errors::*;
 pub use self::errors::{Error, ErrorKind};
 use diff;
+use difference::Changeset;
+use std::process::Output;
 
 #[derive(Debug, Clone)]
 pub struct OutputAssertion {
@@ -19,7 +17,10 @@ impl OutputAssertion {
         let result = got.contains(&self.expect);
         if result != self.expected_result {
             if self.expected_result {
-                bail!(ErrorKind::OutputDoesntContain(self.expect.clone(), got.into()));
+                bail!(ErrorKind::OutputDoesntContain(
+                    self.expect.clone(),
+                    got.into()
+                ));
             } else {
                 bail!(ErrorKind::OutputContains(self.expect.clone(), got.into()));
             }
@@ -35,7 +36,11 @@ impl OutputAssertion {
         if result != self.expected_result {
             if self.expected_result {
                 let nice_diff = diff::render(&differences)?;
-                bail!(ErrorKind::OutputDoesntMatch(self.expect.clone(), got.to_owned(), nice_diff));
+                bail!(ErrorKind::OutputDoesntMatch(
+                    self.expect.clone(),
+                    got.to_owned(),
+                    nice_diff
+                ));
             } else {
                 bail!(ErrorKind::OutputMatches(got.to_owned()));
             }
@@ -52,7 +57,9 @@ impl OutputAssertion {
         } else {
             self.matches_exact(&observed)
         };
-        result.map_err(|e| super::errors::ErrorKind::OutputMismatch(cmd.to_vec(), e, self.kind))?;
+        result.map_err(|e| {
+            super::errors::ErrorKind::OutputMismatch(cmd.to_vec(), e, self.kind)
+        })?;
 
         Ok(())
     }
