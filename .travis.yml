@@ -9,9 +9,16 @@ matrix:
   include:
   - rust: nightly-2017-10-09
     env: CLIPPY=YESPLEASE
+    before_script: |
+      cargo +nightly-2017-10-09 install clippy --vers "0.0.165"
     script: |
-        cargo +nightly-2017-10-09 install clippy --vers "0.0.165"
-        cargo +nightly-2017-10-09 clippy -- -D warnings
+      cargo +nightly-2017-10-09 clippy -- -D warnings
+  - rust: nightly-2017-10-09
+    env: RUSTFMT=YESPLEASE
+    before_script: |
+      cargo +nightly-2017-10-09 install rustfmt-nightly --vers "0.2.8"
+    script: |
+      cargo +nightly-2017-10-09 fmt --all -- --write-mode=diff
 before_script:
 - |
   pip install 'travis-cargo<0.2' --user &&
