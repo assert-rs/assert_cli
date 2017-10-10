@@ -1,11 +1,10 @@
-use std::default;
-use std::process::{Command, Stdio};
-use std::path::PathBuf;
-use std::vec::Vec;
-use std::io::Write;
-
 use errors::*;
 use output::{OutputAssertion, OutputKind};
+use std::default;
+use std::io::Write;
+use std::path::PathBuf;
+use std::process::{Command, Stdio};
+use std::vec::Vec;
 
 /// Assertions for a specific command.
 #[derive(Debug)]
@@ -25,7 +24,9 @@ impl default::Default for Assert {
     fn default() -> Self {
         Assert {
             cmd: vec!["cargo", "run", "--"]
-                .into_iter().map(String::from).collect(),
+                .into_iter()
+                .map(String::from)
+                .collect(),
             current_dir: None,
             expect_success: Some(true),
             expect_exit_code: None,
@@ -49,7 +50,9 @@ impl Assert {
     pub fn cargo_binary(name: &str) -> Self {
         Assert {
             cmd: vec!["cargo", "run", "--bin", name, "--"]
-                .into_iter().map(String::from).collect(),
+                .into_iter()
+                .map(String::from)
+                .collect(),
             ..Self::default()
         }
     }
@@ -265,7 +268,11 @@ impl Assert {
         let mut spawned = command.spawn()?;
 
         if let Some(ref contents) = self.stdin_contents {
-            spawned.stdin.as_mut().expect("Couldn't get mut ref to command stdin").write_all(contents.as_bytes())?;
+            spawned
+                .stdin
+                .as_mut()
+                .expect("Couldn't get mut ref to command stdin")
+                .write_all(contents.as_bytes())?;
         }
         let output = spawned.wait_with_output()?;
 
@@ -282,8 +289,7 @@ impl Assert {
             }
         }
 
-        if self.expect_exit_code.is_some() &&
-            self.expect_exit_code != output.status.code() {
+        if self.expect_exit_code.is_some() && self.expect_exit_code != output.status.code() {
             let out = String::from_utf8_lossy(&output.stdout).to_string();
             let err = String::from_utf8_lossy(&output.stderr).to_string();
             bail!(ErrorKind::ExitCodeMismatch(
@@ -344,7 +350,7 @@ impl OutputAssertionBuilder {
     // No clippy, we don't want to implement std::ops::Not :)
     #[cfg_attr(feature = "cargo-clippy", allow(should_implement_trait))]
     pub fn not(mut self) -> Self {
-        self.expected_result = ! self.expected_result;
+        self.expected_result = !self.expected_result;
         self
     }
 
