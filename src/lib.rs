@@ -118,6 +118,7 @@
 #![deny(missing_docs)]
 
 extern crate difference;
+extern crate environment;
 #[macro_use]
 extern crate error_chain;
 extern crate serde_json;
@@ -135,3 +136,7 @@ mod diff;
 mod assert;
 pub use assert::Assert;
 pub use assert::OutputAssertionBuilder;
+/// Environment is a re-export of the Environment crate
+///
+/// It allow you to define/override environment variables for one or more assertions.
+pub use environment::Environment;

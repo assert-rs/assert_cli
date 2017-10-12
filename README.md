@@ -76,6 +76,8 @@ like this:
          if there are special characters, which the macro doesn't accept, e.g.
          `assert_cmd!(cat "foo.txt")`.
 
+Assert Cli use [Environment][Environment] underneath to deal with environment variables.
+
 More detailed information is available in the [documentation]. :-)
 
 ## License
@@ -95,3 +97,4 @@ license, shall be dual licensed as above, without any additional terms or
 conditions.
 
 [Documentation]: https://docs.rs/assert_cli
+[Environment]: https://github.com/Freyskeyd/environment
