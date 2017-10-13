@@ -12,6 +12,9 @@ categories = ["development-tools::testing"]
 keywords = ["cli", "testing", "assert"]
 build = "build.rs"
 
+[[bin]]
+name = "assert_fixture"
+
 [dependencies]
 colored = "1.5"
 difference = "1.0"
