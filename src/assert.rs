@@ -8,6 +8,20 @@ use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::vec::Vec;
 
+fn find_cargo() -> String {
+    let which_cargo = Command::new("which").arg("cargo")
+        .output().expect("Cannot exectute `which` to find `cargo`.");
+
+    if !which_cargo.status.success() {
+        panic!("Could not find `cargo` command");
+    }
+
+    String::from_utf8(which_cargo.stdout)
+        .expect("Path to `cargo` is not UTF-8. This is currently unsupported by assert_cli.")
+        .trim()
+        .to_string()
+}
+
 /// Assertions for a specific command.
 #[derive(Debug)]
 pub struct Assert {
@@ -25,11 +39,13 @@ impl default::Default for Assert {
     ///
     /// Defaults to asserting _successful_ execution.
     fn default() -> Self {
+        let cargo_path = find_cargo();
+        let args = vec!["run", "--quiet", "--"]
+            .into_iter()
+            .map(String::from);
+
         Assert {
-            cmd: vec!["cargo", "run", "--quiet", "--"]
-                .into_iter()
-                .map(String::from)
-                .collect(),
+            cmd: vec![cargo_path].into_iter().chain(args).collect(),
             env: Environment::inherit(),
             current_dir: None,
             expect_success: Some(true),
@@ -52,11 +68,13 @@ impl Assert {
     ///
     /// Defaults to asserting _successful_ execution.
     pub fn cargo_binary(name: &str) -> Self {
+        let cargo_path = find_cargo();
+        let args = vec!["run", "--quiet", "--bin", name, "--"]
+            .into_iter()
+            .map(String::from);
+
         Assert {
-            cmd: vec!["cargo", "run", "--quiet", "--bin", name, "--"]
-                .into_iter()
-                .map(String::from)
-                .collect(),
+            cmd: vec![cargo_path].into_iter().chain(args).collect(),
             ..Self::default()
         }
     }

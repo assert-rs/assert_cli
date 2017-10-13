@@ -21,3 +21,15 @@ fn cargo_binary() {
         .is("")
         .unwrap();
 }
+
+
+#[test]
+fn works_with_empty_env() {
+    assert_cli::Assert::main_binary()
+        .with_env(assert_cli::Environment::empty())
+        .unwrap();
+
+    assert_cli::Assert::cargo_binary("assert_fixture")
+        .with_env(assert_cli::Environment::empty())
+        .unwrap();
+}
