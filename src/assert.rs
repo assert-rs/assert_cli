@@ -1,4 +1,5 @@
 use environment::Environment;
+use error_chain::ChainedError;
 use errors::*;
 use output::{OutputAssertion, OutputKind};
 use std::default;
@@ -332,7 +333,9 @@ impl Assert {
             None => command,
         };
 
-        let mut spawned = command.spawn()?;
+        let mut spawned = command
+            .spawn()
+            .chain_err(|| ErrorKind::SpawnFailed(self.cmd.clone()))?;
 
         if let Some(ref contents) = self.stdin_contents {
             spawned
@@ -389,7 +392,7 @@ impl Assert {
     /// ```
     pub fn unwrap(self) {
         if let Err(err) = self.execute() {
-            panic!("{}", err);
+            panic!("{}", err.display_chain());
         }
     }
 }
