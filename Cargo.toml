@@ -2,7 +2,7 @@
 name = "assert_cli"
 version = "0.5.4"
 description = "Test CLI Applications."
-authors = ["Pascal Hertleif <killercup@gmail.com>"]
+authors = ["Pascal Hertleif <killercup@gmail.com>", "Ed Page <eopage@byu.net>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/killercup/assert_cli.git"
 homepage = "https://github.com/killercup/assert_cli"
