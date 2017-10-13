@@ -26,7 +26,7 @@ impl default::Default for Assert {
     /// Defaults to asserting _successful_ execution.
     fn default() -> Self {
         Assert {
-            cmd: vec!["cargo", "run", "--"]
+            cmd: vec!["cargo", "run", "--quiet", "--"]
                 .into_iter()
                 .map(String::from)
                 .collect(),
@@ -53,7 +53,7 @@ impl Assert {
     /// Defaults to asserting _successful_ execution.
     pub fn cargo_binary(name: &str) -> Self {
         Assert {
-            cmd: vec!["cargo", "run", "--bin", name, "--"]
+            cmd: vec!["cargo", "run", "--quiet", "--bin", name, "--"]
                 .into_iter()
                 .map(String::from)
                 .collect(),

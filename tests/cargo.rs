@@ -5,7 +5,9 @@ fn main_binary() {
     assert_cli::Assert::main_binary()
         .with_env(assert_cli::Environment::inherit().insert("stdout", "42"))
         .stdout()
-        .contains("42")
+        .is("42")
+        .stderr()
+        .is("")
         .unwrap();
 }
 
@@ -14,6 +16,8 @@ fn cargo_binary() {
     assert_cli::Assert::cargo_binary("assert_fixture")
         .with_env(assert_cli::Environment::inherit().insert("stdout", "42"))
         .stdout()
-        .contains("42")
+        .is("42")
+        .stderr()
+        .is("")
         .unwrap();
 }
