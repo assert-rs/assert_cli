@@ -4,58 +4,23 @@ use diff;
 use difference::Changeset;
 use std::process::Output;
 
-#[derive(Debug, Clone)]
+// TODO(dsprenkels) Should implement Debug. Because of the type of `pred`, we will have
+// to do this by hand.
 pub struct OutputAssertion {
-    pub expect: String,
-    pub fuzzy: bool,
-    pub expected_result: bool,
+    pub pred: Box<Fn(&str) -> bool>,
     pub kind: OutputKind,
 }
 
 impl OutputAssertion {
-    fn matches_fuzzy(&self, got: &str) -> Result<()> {
-        let result = got.contains(&self.expect);
-        if result != self.expected_result {
-            if self.expected_result {
-                bail!(ErrorKind::OutputDoesntContain(
-                    self.expect.clone(),
-                    got.into()
-                ));
-            } else {
-                bail!(ErrorKind::OutputContains(self.expect.clone(), got.into()));
-            }
-        }
-
-        Ok(())
-    }
-
-    fn matches_exact(&self, got: &str) -> Result<()> {
-        let differences = Changeset::new(self.expect.trim(), got.trim(), "\n");
-        let result = differences.distance == 0;
-
-        if result != self.expected_result {
-            if self.expected_result {
-                let nice_diff = diff::render(&differences)?;
-                bail!(ErrorKind::OutputDoesntMatch(
-                    self.expect.clone(),
-                    got.to_owned(),
-                    nice_diff
-                ));
-            } else {
-                bail!(ErrorKind::OutputMatches(got.to_owned()));
-            }
-        }
-
-        Ok(())
-    }
-
     pub fn execute(&self, output: &Output, cmd: &[String]) -> super::errors::Result<()> {
+        // TODO(dsprenkels) There is currently no error reporting. I still have to think
+        // of a solution that nicely handles all the predefined errors (`OutputDoesntContain`
+        // etc.) and also handles UserErrors. I may even consider using Any.
         let observed = String::from_utf8_lossy(self.kind.select(output));
 
-        let result = if self.fuzzy {
-            self.matches_fuzzy(&observed)
-        } else {
-            self.matches_exact(&observed)
+        let result = match (self.pred)(&observed) {
+            true => Ok(()),
+            false => Err(ErrorKind::Unspecified(observed.into()).into()),
         };
         result.map_err(|e| {
             super::errors::ErrorKind::OutputMismatch(cmd.to_vec(), e, self.kind)
@@ -101,6 +66,10 @@ mod errors {
             OutputMatches(got: String) {
                 description("Output was not as expected")
                 display("expected to not match\noutput=```{}```", got)
+            }
+            Unspecified(got: String) {
+                description("Unspecified error")
+                display("output=```{}```", got)
             }
         }
     }

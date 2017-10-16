@@ -8,7 +8,6 @@ use std::process::{Command, Stdio};
 use std::vec::Vec;
 
 /// Assertions for a specific command.
-#[derive(Debug)]
 pub struct Assert {
     cmd: Vec<String>,
     env: Environment,
@@ -371,7 +370,6 @@ impl Assert {
 }
 
 /// Assertions for command output.
-#[derive(Debug)]
 pub struct OutputAssertionBuilder {
     assertion: Assert,
     kind: OutputKind,
@@ -409,10 +407,13 @@ impl OutputAssertionBuilder {
     ///     .unwrap();
     /// ```
     pub fn contains<O: Into<String>>(mut self, output: O) -> Assert {
+        let output_clone = output.into().clone();
+        let expected_result = self.expected_result;
+        let predicate = move |x: &str| {
+            x.contains(&output_clone) == expected_result
+        };
         self.assertion.expect_output.push(OutputAssertion {
-            expect: output.into(),
-            fuzzy: true,
-            expected_result: self.expected_result,
+            pred: Box::new(predicate),
             kind: self.kind,
         });
         self.assertion
@@ -430,10 +431,13 @@ impl OutputAssertionBuilder {
     ///     .unwrap();
     /// ```
     pub fn is<O: Into<String>>(mut self, output: O) -> Assert {
+        let output_clone = output.into().clone();
+        let expected_result = self.expected_result;
+        let predicate = move |x: &str| {
+            (&x.trim() == &output_clone.trim()) == expected_result
+        };
         self.assertion.expect_output.push(OutputAssertion {
-            expect: output.into(),
-            fuzzy: false,
-            expected_result: self.expected_result,
+            pred: Box::new(predicate),
             kind: self.kind,
         });
         self.assertion
