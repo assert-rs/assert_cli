@@ -238,6 +238,25 @@ impl Assert {
         self
     }
 
+    /// Do not care whether the command exits successfully or if it fails.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    ///     .ignore_status()
+    ///     .and()
+    ///     .stderr().is("cat: non-existing-file: No such file or directory")
+    ///     .unwrap();
+    /// ```
+    pub fn ignore_status(mut self) -> Self {
+        self.expect_exit_code = None;
+        self.expect_success = None;
+        self
+    }
+
     /// Create an assertion for stdout's contents
     ///
     /// # Examples
