@@ -6,6 +6,14 @@ error_chain! {
         Fmt(::std::fmt::Error);
     }
     errors {
+        SpawnFailed(cmd: Vec<String>) {
+            description("Spawn failed")
+            display(
+                "{}: (command `{}` failed to run)",
+                ERROR_PREFIX,
+                cmd.join(" "),
+            )
+        }
         StatusMismatch(cmd: Vec<String>, expected: bool, out: String, err: String) {
             description("Wrong status")
             display(
