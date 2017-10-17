@@ -1,4 +1,5 @@
 use environment::Environment;
+use error_chain::ChainedError;
 use errors::*;
 use output::{OutputAssertion, OutputKind};
 use std::default;
@@ -25,7 +26,7 @@ impl default::Default for Assert {
     /// Defaults to asserting _successful_ execution.
     fn default() -> Self {
         Assert {
-            cmd: vec!["cargo", "run", "--"]
+            cmd: vec!["cargo", "run", "--quiet", "--"]
                 .into_iter()
                 .map(String::from)
                 .collect(),
@@ -52,7 +53,7 @@ impl Assert {
     /// Defaults to asserting _successful_ execution.
     pub fn cargo_binary(name: &str) -> Self {
         Assert {
-            cmd: vec!["cargo", "run", "--bin", name, "--"]
+            cmd: vec!["cargo", "run", "--quiet", "--bin", name, "--"]
                 .into_iter()
                 .map(String::from)
                 .collect(),
@@ -332,7 +333,9 @@ impl Assert {
             None => command,
         };
 
-        let mut spawned = command.spawn()?;
+        let mut spawned = command
+            .spawn()
+            .chain_err(|| ErrorKind::SpawnFailed(self.cmd.clone()))?;
 
         if let Some(ref contents) = self.stdin_contents {
             spawned
@@ -389,7 +392,7 @@ impl Assert {
     /// ```
     pub fn unwrap(self) {
         if let Err(err) = self.execute() {
-            panic!("{}", err);
+            panic!("{}", err.display_chain());
         }
     }
 }
