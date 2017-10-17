@@ -1,13 +1,16 @@
 use environment::Environment;
 use errors::*;
-use output::{OutputAssertion, OutputKind};
+use output::{self, OutputAssertion, OutputKind};
 use std::default;
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
+use std::rc::Rc;
+use std::result::Result as stdResult;
 use std::vec::Vec;
 
 /// Assertions for a specific command.
+#[derive(Debug)]
 pub struct Assert {
     cmd: Vec<String>,
     env: Environment,
@@ -370,6 +373,7 @@ impl Assert {
 }
 
 /// Assertions for command output.
+#[derive(Debug)]
 pub struct OutputAssertionBuilder {
     assertion: Assert,
     kind: OutputKind,
@@ -407,15 +411,15 @@ impl OutputAssertionBuilder {
     ///     .unwrap();
     /// ```
     pub fn contains<O: Into<String>>(mut self, output: O) -> Assert {
-        let output_clone = output.into().clone();
+        let expect = output.into();
         let expected_result = self.expected_result;
-        let predicate = move |x: &str| {
-            x.contains(&output_clone) == expected_result
-        };
-        self.assertion.expect_output.push(OutputAssertion {
-            pred: Box::new(predicate),
-            kind: self.kind,
-        });
+        let test = move |got: &str| output::matches_fuzzy(got, &expect, expected_result);
+        self.assertion
+            .expect_output
+            .push(OutputAssertion {
+                      test: Rc::new(test),
+                      kind: self.kind,
+                  });
         self.assertion
     }
 
@@ -431,15 +435,15 @@ impl OutputAssertionBuilder {
     ///     .unwrap();
     /// ```
     pub fn is<O: Into<String>>(mut self, output: O) -> Assert {
-        let output_clone = output.into().clone();
+        let expect = output.into();
         let expected_result = self.expected_result;
-        let predicate = move |x: &str| {
-            (&x.trim() == &output_clone.trim()) == expected_result
-        };
-        self.assertion.expect_output.push(OutputAssertion {
-            pred: Box::new(predicate),
-            kind: self.kind,
-        });
+        let test = move |got: &str| output::matches_exact(got, &expect, expected_result);
+        self.assertion
+            .expect_output
+            .push(OutputAssertion {
+                      test: Rc::new(test),
+                      kind: self.kind,
+                  });
         self.assertion
     }
 
@@ -471,6 +475,72 @@ impl OutputAssertionBuilder {
     /// ```
     pub fn isnt<O: Into<String>>(self, output: O) -> Assert {
         self.not().is(output)
+    }
+
+    /// Expect the command to satisfy the predicate defined by `pred`.
+    /// `pred` should be a function taking a `&str` and returning `true`
+    /// if the assertion was correct, or `false` if the assertion should
+    /// fail. When it fails, it will fail with a `PredicateFails` error.
+    /// This error will contain no additional data. If this is required
+    /// then you may want to use `satisfies_ok` instead.
+    ///
+    /// # Examples
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// // Test for a specific output length
+    /// assert_cli::Assert::command(&["echo", "-n", "42"])
+    ///     .stdout().satisfies(|x| x.len() == 2)
+    ///     .unwrap();
+    ///
+    /// // Test a more complex predicate
+    /// assert_cli::Assert::command(&["echo", "-n", "Hello World!"])
+    ///     .stdout().satisfies(|x| x.starts_with("Hello") && x.ends_with("World!"))
+    ///     .unwrap();
+    /// ```
+    pub fn satisfies<F>(mut self, pred: F) -> Assert
+        where F: 'static + Fn(&str) -> bool
+    {
+        let test = move |got: &str| output::matches_pred(got, &pred);
+        self.assertion
+            .expect_output
+            .push(OutputAssertion {
+                      test: Rc::new(test),
+                      kind: self.kind,
+                  });
+        self.assertion
+    }
+
+    /// Expect the command to satisfy the predicate defined by `pred_ok`.
+    /// Unlike `satisfies`, this function takes a predicate function which
+    /// gets the command's output as an argument and returns a
+    /// `Result<(), String>` struct, such that you can specify a custom
+    /// error for when the assertion fails.
+    ///
+    /// # Examples
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "-n", "42"])
+    ///     .stdout().satisfies_ok(|x| {
+    ///         match x.len() {
+    ///             2 => Ok(()),
+    ///             n => Err(format!("Bad output length: {}", n)),
+    ///         }
+    ///     })
+    ///     .unwrap();
+    /// ```
+    pub fn satisfies_ok<F>(mut self, pred_ok: F) -> Assert
+        where F: 'static + Fn(&str) -> stdResult<(), String>
+    {
+        let test = move |got: &str| output::matches_pred_ok(got, &pred_ok);
+        self.assertion
+            .expect_output
+            .push(OutputAssertion {
+                      test: Rc::new(test),
+                      kind: self.kind,
+                  });
+        self.assertion
     }
 }
 
