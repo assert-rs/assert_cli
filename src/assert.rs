@@ -238,6 +238,30 @@ impl Assert {
         self
     }
 
+    /// Do not care whether the command exits successfully or if it fails.
+    ///
+    /// This function removes any assertions that were already set, including
+    /// any expected exit code that was set with [`fails_with`].
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    ///     .ignore_status()
+    ///     .and()
+    ///     .stderr().is("cat: non-existing-file: No such file or directory")
+    ///     .unwrap();
+    /// ```
+    ///
+    /// [`fails_with`]: #method.fails_with
+    pub fn ignore_status(mut self) -> Self {
+        self.expect_exit_code = None;
+        self.expect_success = None;
+        self
+    }
+
     /// Create an assertion for stdout's contents
     ///
     /// # Examples
