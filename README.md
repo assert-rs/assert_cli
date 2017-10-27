@@ -2,7 +2,7 @@
 
 > **Test CLI Applications** - This crate checks the output of a child process is as expected.
 
-[![Build Status](https://travis-ci.org/killercup/assert_cli.svg)](https://travis-ci.org/killercup/assert_cli) [![Documentation](https://img.shields.io/badge/docs-master-blue.svg)][Documentation]
+[![Build Status](https://travis-ci.org/killercup/assert_cli.svg)](https://travis-ci.org/killercup/assert_cli) [![Documentation](https://img.shields.io/badge/docs-master-blue.svg)][Documentation] ![License](https://img.shields.io/crates/l/assert_cli.svg) [![crates.io](https://img.shields.io/crates/v/assert_cli.svg)](https://crates.io/crates/assert_cli)
 
 ## Install
 
