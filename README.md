@@ -80,6 +80,13 @@ Assert Cli use [Environment][Environment] underneath to deal with environment va
 
 More detailed information is available in the [documentation]. :-)
 
+## Relevant crates
+
+Other crates that might be useful in testing command line programs.
+* [dir-diff](https://crates.io/crates/dir-diff) for testing file side-effects.
+* [tempdir](https://crates.io/crates/tempdir) for scratchpad directories.
+* [duct](https://crates.io/crates/duct) for orchestrating multiple processes.
+
 ## License
 
 Licensed under either of
