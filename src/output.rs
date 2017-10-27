@@ -2,6 +2,7 @@ use self::errors::*;
 pub use self::errors::{Error, ErrorKind};
 use diff;
 use difference::Changeset;
+use std::ffi::OsString;
 use std::process::Output;
 
 #[derive(Debug, Clone)]
@@ -49,7 +50,7 @@ impl OutputAssertion {
         Ok(())
     }
 
-    pub fn execute(&self, output: &Output, cmd: &[String]) -> super::errors::Result<()> {
+    pub fn execute(&self, output: &Output, cmd: &[OsString]) -> super::errors::Result<()> {
         let observed = String::from_utf8_lossy(self.kind.select(output));
 
         let result = if self.fuzzy {
