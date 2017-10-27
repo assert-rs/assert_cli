@@ -10,6 +10,7 @@ use std::vec::Vec;
 
 /// Assertions for a specific command.
 #[derive(Debug)]
+#[must_use]
 pub struct Assert {
     cmd: Vec<String>,
     env: Environment,
@@ -399,6 +400,7 @@ impl Assert {
 
 /// Assertions for command output.
 #[derive(Debug)]
+#[must_use]
 pub struct OutputAssertionBuilder {
     assertion: Assert,
     kind: OutputKind,
