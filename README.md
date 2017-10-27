@@ -17,42 +17,30 @@ assert_cli = "0.5"
 
 Here's a trivial example:
 
+```rust,ignore
+extern crate assert_cli;
+
+fn main() {
+    assert_cli::Assert::main_binary().unwrap();
+}
+```
+
+And here is one that will fail (and demonstrates running arbitrary commands):
+
 ```rust
 extern crate assert_cli;
 
 fn main() {
-    assert_cli::Assert::command(&["echo", "42"]).stdout().contains("42").unwrap();
-}
-```
-
-Or if you'd rather use the macro, to save you some writing:
-
-```rust
-#[macro_use] extern crate assert_cli;
-
-fn main() {
-    assert_cmd!(echo "42").stdout().contains("42").unwrap();
-}
-```
-
-And here is one that will fail (which also shows `execute` which returns a
-`Result` and can be used instead of `unwrap`):
-
-```rust
-#[macro_use] extern crate assert_cli;
-
-fn main() {
-    let test = assert_cmd!(ls "foo-bar-foo")
+    assert_cli::Assert::command(&["ls", "foo-bar-foo"])
         .fails()
         .and()
         .stderr().contains("foo-bar-foo")
-        .execute();
-    assert!(test.is_ok());
+        .unwrap();
 }
 ```
 
 If you want to match the program's output _exactly_, you can use
-`stdout().is`:
+`stdout().is` (and shows the macro form of `command`):
 
 ```rust,should_panic
 #[macro_use] extern crate assert_cli;
