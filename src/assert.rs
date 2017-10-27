@@ -3,6 +3,7 @@ use error_chain::ChainedError;
 use errors::*;
 use output::{OutputAssertion, OutputKind};
 use std::default;
+use std::ffi::{OsStr, OsString};
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
@@ -12,7 +13,7 @@ use std::vec::Vec;
 #[derive(Debug)]
 #[must_use]
 pub struct Assert {
-    cmd: Vec<String>,
+    cmd: Vec<OsString>,
     env: Environment,
     current_dir: Option<PathBuf>,
     expect_success: Option<bool>,
@@ -29,7 +30,7 @@ impl default::Default for Assert {
         Assert {
             cmd: vec!["cargo", "run", "--quiet", "--"]
                 .into_iter()
-                .map(String::from)
+                .map(OsString::from)
                 .collect(),
             env: Environment::inherit(),
             current_dir: None,
@@ -52,11 +53,17 @@ impl Assert {
     /// Run a specific binary of the current crate.
     ///
     /// Defaults to asserting _successful_ execution.
-    pub fn cargo_binary(name: &str) -> Self {
+    pub fn cargo_binary<S: AsRef<OsStr>>(name: S) -> Self {
         Assert {
-            cmd: vec!["cargo", "run", "--quiet", "--bin", name, "--"]
-                .into_iter()
-                .map(String::from)
+            cmd: vec![
+                OsStr::new("cargo"),
+                OsStr::new("run"),
+                OsStr::new("--quiet"),
+                OsStr::new("--bin"),
+                name.as_ref(),
+                OsStr::new("--"),
+            ].into_iter()
+                .map(OsString::from)
                 .collect(),
             ..Self::default()
         }
@@ -74,9 +81,9 @@ impl Assert {
     /// assert_cli::Assert::command(&["echo", "1337"])
     ///     .unwrap();
     /// ```
-    pub fn command(cmd: &[&str]) -> Self {
+    pub fn command<S: AsRef<OsStr>>(cmd: &[S]) -> Self {
         Assert {
-            cmd: cmd.into_iter().cloned().map(String::from).collect(),
+            cmd: cmd.into_iter().map(OsString::from).collect(),
             ..Self::default()
         }
     }
@@ -94,8 +101,8 @@ impl Assert {
     ///     .unwrap();
     ///
     /// ```
-    pub fn with_args(mut self, args: &[&str]) -> Self {
-        self.cmd.extend(args.into_iter().cloned().map(String::from));
+    pub fn with_args<S: AsRef<OsStr>>(mut self, args: &[S]) -> Self {
+        self.cmd.extend(args.into_iter().map(OsString::from));
         self
     }
 
