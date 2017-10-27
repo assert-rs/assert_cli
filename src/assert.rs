@@ -176,8 +176,10 @@ impl Assert {
     /// ```rust
     /// extern crate assert_cli;
     ///
-    /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .stdout().contains("42")
+    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    ///     .fails()
+    ///     .and()
+    ///     .stderr().contains("non-existing-file")
     ///     .unwrap();
     /// ```
     pub fn and(self) -> Self {
@@ -192,6 +194,7 @@ impl Assert {
     /// extern crate assert_cli;
     ///
     /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .succeeds()
     ///     .unwrap();
     /// ```
     pub fn succeeds(mut self) -> Self {

@@ -2,14 +2,17 @@
 
 > **Test CLI Applications** - This crate checks the output of a child process is as expected.
 
-[![Build Status](https://travis-ci.org/killercup/assert_cli.svg)](https://travis-ci.org/killercup/assert_cli) [![Documentation](https://img.shields.io/badge/docs-master-blue.svg)][Documentation]
+[![Build Status](https://travis-ci.org/killercup/assert_cli.svg)][Travis]
+[![Documentation](https://img.shields.io/badge/docs-master-blue.svg)][Documentation]
+![License](https://img.shields.io/crates/l/assert_cli.svg)
+[![crates.io](https://img.shields.io/crates/v/assert_cli.svg)][Crates.io]
 
 ## Install
 
-Just add it to your `Cargo.toml`:
+For your tests, add it to your `Cargo.toml`:
 
 ```toml
-[dependencies]
+[dev-dependencies]
 assert_cli = "0.5"
 ```
 
@@ -17,42 +20,30 @@ assert_cli = "0.5"
 
 Here's a trivial example:
 
+```rust,ignore
+extern crate assert_cli;
+
+fn main() {
+    assert_cli::Assert::main_binary().unwrap();
+}
+```
+
+And here is one that will fail (and demonstrates running arbitrary commands):
+
 ```rust
 extern crate assert_cli;
 
 fn main() {
-    assert_cli::Assert::command(&["echo", "42"]).stdout().contains("42").unwrap();
-}
-```
-
-Or if you'd rather use the macro, to save you some writing:
-
-```rust
-#[macro_use] extern crate assert_cli;
-
-fn main() {
-    assert_cmd!(echo "42").stdout().contains("42").unwrap();
-}
-```
-
-And here is one that will fail (which also shows `execute` which returns a
-`Result` and can be used instead of `unwrap`):
-
-```rust
-#[macro_use] extern crate assert_cli;
-
-fn main() {
-    let test = assert_cmd!(ls "foo-bar-foo")
+    assert_cli::Assert::command(&["ls", "foo-bar-foo"])
         .fails()
         .and()
         .stderr().contains("foo-bar-foo")
-        .execute();
-    assert!(test.is_ok());
+        .unwrap();
 }
 ```
 
 If you want to match the program's output _exactly_, you can use
-`stdout().is`:
+`stdout().is` (and shows the macro form of `command`):
 
 ```rust,should_panic
 #[macro_use] extern crate assert_cli;
@@ -80,6 +71,13 @@ Assert Cli use [Environment][Environment] underneath to deal with environment va
 
 More detailed information is available in the [documentation]. :-)
 
+## Relevant crates
+
+Other crates that might be useful in testing command line programs.
+* [dir-diff][dir-diff] for testing file side-effects.
+* [tempdir][tempdir] for scratchpad directories.
+* [duct][duct] for orchestrating multiple processes.
+
 ## License
 
 Licensed under either of
@@ -96,5 +94,10 @@ submitted for inclusion in the work by you, as defined in the Apache-2.0
 license, shall be dual licensed as above, without any additional terms or
 conditions.
 
+[Travis]: https://travis-ci.org/killercup/assert_cli
+[Crates.io]: https://crates.io/crates/assert_cli
 [Documentation]: https://docs.rs/assert_cli
 [Environment]: https://github.com/Freyskeyd/environment
+[dir-diff]: https://crates.io/crates/dir-diff
+[tempdir]: https://crates.io/crates/tempdir
+[duct]: https://crates.io/crates/duct
