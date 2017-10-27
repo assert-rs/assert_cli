@@ -2,11 +2,14 @@
 
 > **Test CLI Applications** - This crate checks the output of a child process is as expected.
 
-[![Build Status](https://travis-ci.org/killercup/assert_cli.svg)](https://travis-ci.org/killercup/assert_cli) [![Documentation](https://img.shields.io/badge/docs-master-blue.svg)][Documentation] ![License](https://img.shields.io/crates/l/assert_cli.svg) [![crates.io](https://img.shields.io/crates/v/assert_cli.svg)](https://crates.io/crates/assert_cli)
+[![Build Status](https://travis-ci.org/killercup/assert_cli.svg)][Travis]
+[![Documentation](https://img.shields.io/badge/docs-master-blue.svg)][Documentation]
+![License](https://img.shields.io/crates/l/assert_cli.svg)
+[![crates.io](https://img.shields.io/crates/v/assert_cli.svg)][Crates.io]
 
 ## Install
 
-For your tests, just add it to your `Cargo.toml`:
+For your tests, add it to your `Cargo.toml`:
 
 ```toml
 [dev-dependencies]
@@ -71,9 +74,9 @@ More detailed information is available in the [documentation]. :-)
 ## Relevant crates
 
 Other crates that might be useful in testing command line programs.
-* [dir-diff](https://crates.io/crates/dir-diff) for testing file side-effects.
-* [tempdir](https://crates.io/crates/tempdir) for scratchpad directories.
-* [duct](https://crates.io/crates/duct) for orchestrating multiple processes.
+* [dir-diff][dir-diff] for testing file side-effects.
+* [tempdir][tempdir] for scratchpad directories.
+* [duct][duct] for orchestrating multiple processes.
 
 ## License
 
@@ -91,5 +94,10 @@ submitted for inclusion in the work by you, as defined in the Apache-2.0
 license, shall be dual licensed as above, without any additional terms or
 conditions.
 
+[Travis]: https://travis-ci.org/killercup/assert_cli
+[Crates.io]: https://crates.io/crates/assert_cli
 [Documentation]: https://docs.rs/assert_cli
 [Environment]: https://github.com/Freyskeyd/environment
+[dir-diff]: https://crates.io/crates/dir-diff
+[tempdir]: https://crates.io/crates/tempdir
+[duct]: https://crates.io/crates/duct
