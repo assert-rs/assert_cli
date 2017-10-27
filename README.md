@@ -6,10 +6,10 @@
 
 ## Install
 
-Just add it to your `Cargo.toml`:
+For your tests, just add it to your `Cargo.toml`:
 
 ```toml
-[dependencies]
+[dev-dependencies]
 assert_cli = "0.5"
 ```
 
