@@ -11,6 +11,9 @@ fn format_cmd(cmd: &[OsString]) -> String {
 }
 
 error_chain! {
+    links {
+        Output(output::Error, output::ErrorKind);
+    }
     foreign_links {
         Io(::std::io::Error);
         Fmt(::std::fmt::Error);
@@ -24,12 +27,18 @@ error_chain! {
                 format_cmd(cmd),
             )
         }
-        StatusMismatch(cmd: Vec<OsString>, expected: bool, out: String, err: String) {
-            description("Wrong status")
+        AssertionFailed(cmd: Vec<OsString>) {
+            description("Assertion failed")
             display(
-                "{}: (command `{}` expected to {})\nstatus={}\nstdout=```{}```\nstderr=```{}```",
+                "{}: (command `{}` failed)",
                 ERROR_PREFIX,
                 format_cmd(cmd),
+            )
+        }
+        StatusMismatch(expected: bool, out: String, err: String) {
+            description("Wrong status")
+            display(
+                "Expected to {}\nstatus={}\nstdout=```{}```\nstderr=```{}```",
                 expected = if *expected { "succeed" } else { "fail" },
                 got = if *expected { "failed" } else { "succeeded" },
                 out = out,
@@ -37,7 +46,6 @@ error_chain! {
             )
         }
         ExitCodeMismatch(
-            cmd: Vec<OsString>,
             expected: Option<i32>,
             got: Option<i32>,
             out: String,
@@ -45,25 +53,15 @@ error_chain! {
         ) {
             description("Wrong exit code")
             display(
-                "{prefix}: (exit code of `{cmd}` expected to be `{expected:?}`)\n\
+                "Expected exit code to be `{expected:?}`)\n\
                 exit code=`{code:?}`\n\
                 stdout=```{stdout}```\n\
                 stderr=```{stderr}```",
-                prefix=ERROR_PREFIX,
-                cmd=format_cmd(cmd),
                 expected=expected,
                 code=got,
                 stdout=out,
                 stderr=err,
             )
         }
-        OutputMismatch(cmd: Vec<OsString>, output_err: output::Error, kind: output::OutputKind) {
-            description("Output was not as expected")
-            display(
-                "{}: `{}` {:?} mismatch: {}",
-                ERROR_PREFIX, format_cmd(cmd), kind, output_err,
-            )
-        }
-
     }
 }
