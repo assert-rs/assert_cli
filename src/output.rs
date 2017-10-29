@@ -4,7 +4,6 @@ use diff;
 use difference::Changeset;
 use std::process;
 
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct IsPredicate {
     pub expect: String,
@@ -79,24 +78,38 @@ pub struct Output {
 }
 
 impl Output {
+    fn new(pred: StrPredicate) -> Self {
+        Self { pred }
+    }
+
+    pub(crate) fn verify_str(&self, got: &str) -> Result<()> {
+        self.pred.verify_str(got)
+    }
+}
+
+/// Predicate helpers to match against outputs
+pub mod predicates {
+    use super::*;
+
     /// Expect the command's output to **contain** `output`.
     ///
     /// # Examples
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["echo"])
+    /// Assert::command(&["echo"])
     ///     .with_args(&["42"])
-    ///     .stdout(assert_cli::Output::contains("42"))
+    ///     .stdout(contains("42"))
     ///     .unwrap();
     /// ```
-    pub fn contains<O: Into<String>>(output: O) -> Self {
+    pub fn contains<O: Into<String>>(output: O) -> Output {
         let pred = ContainsPredicate {
             expect: output.into(),
             expected_result: true,
         };
-        Self::new(StrPredicate::Contains(pred))
+        Output::new(StrPredicate::Contains(pred))
     }
 
     /// Expect the command to output **exactly** this `output`.
@@ -111,12 +124,12 @@ impl Output {
     ///     .stdout(assert_cli::Output::is("42"))
     ///     .unwrap();
     /// ```
-    pub fn is<O: Into<String>>(output: O) -> Self {
+    pub fn is<O: Into<String>>(output: O) -> Output {
         let pred = IsPredicate {
             expect: output.into(),
             expected_result: true,
         };
-        Self::new(StrPredicate::Is(pred))
+        Output::new(StrPredicate::Is(pred))
     }
 
     /// Expect the command's output to not **contain** `output`.
@@ -131,12 +144,12 @@ impl Output {
     ///     .stdout(assert_cli::Output::doesnt_contain("73"))
     ///     .unwrap();
     /// ```
-    pub fn doesnt_contain<O: Into<String>>(output: O) -> Self {
+    pub fn doesnt_contain<O: Into<String>>(output: O) -> Output {
         let pred = ContainsPredicate {
             expect: output.into(),
             expected_result: false,
         };
-        Self::new(StrPredicate::Contains(pred))
+        Output::new(StrPredicate::Contains(pred))
     }
 
     /// Expect the command to output to not be **exactly** this `output`.
@@ -151,20 +164,12 @@ impl Output {
     ///     .stdout(assert_cli::Output::isnt("73"))
     ///     .unwrap();
     /// ```
-    pub fn isnt<O: Into<String>>(output: O) -> Self {
+    pub fn isnt<O: Into<String>>(output: O) -> Output {
         let pred = IsPredicate {
             expect: output.into(),
             expected_result: false,
         };
-        Self::new(StrPredicate::Is(pred))
-    }
-
-    fn new(pred: StrPredicate) -> Self {
-        Self { pred }
-    }
-
-    pub(crate) fn verify_str(&self, got: &str) -> Result<()> {
-        self.pred.verify_str(got)
+        Output::new(StrPredicate::Is(pred))
     }
 }
 

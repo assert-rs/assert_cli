@@ -77,8 +77,9 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["echo", "1337"])
+    /// Assert::command(&["echo", "1337"])
     ///     .unwrap();
     /// ```
     pub fn command<S: AsRef<OsStr>>(cmd: &[S]) -> Self {
@@ -94,12 +95,12 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["echo"])
+    /// Assert::command(&["echo"])
     ///     .with_args(&["42"])
-    ///     .stdout(assert_cli::Output::contains("42"))
+    ///     .stdout(contains("42"))
     ///     .unwrap();
-    ///
     /// ```
     pub fn with_args<S: AsRef<OsStr>>(mut self, args: &[S]) -> Self {
         self.cmd.extend(args.into_iter().map(OsString::from));
@@ -112,10 +113,11 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["cat"])
+    /// Assert::command(&["cat"])
     ///     .stdin("42")
-    ///     .stdout(assert_cli::Output::contains("42"))
+    ///     .stdout(contains("42"))
     ///     .unwrap();
     /// ```
     pub fn stdin(mut self, contents: &str) -> Self {
@@ -129,10 +131,11 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["wc", "lib.rs"])
+    /// Assert::command(&["wc", "lib.rs"])
     ///     .current_dir(std::path::Path::new("src"))
-    ///     .stdout(assert_cli::Output::contains("lib.rs"))
+    ///     .stdout(contains("lib.rs"))
     ///     .execute()
     ///     .unwrap();
     /// ```
@@ -147,26 +150,28 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["printenv"])
+    /// Assert::command(&["printenv"])
     ///     .with_env(&[("TEST_ENV", "OK")])
-    ///     .stdout(assert_cli::Output::is("TEST_ENV=OK"))
+    ///     .stdout(is("TEST_ENV=OK"))
     ///     .execute()
     ///     .unwrap();
     ///
     /// let env = assert_cli::Environment::empty()
     ///     .insert("FOO", "BAR");
     ///
-    /// assert_cli::Assert::command(&["printenv"])
+    /// Assert::command(&["printenv"])
     ///     .with_env(&env)
-    ///     .stdout(assert_cli::Output::is("FOO=BAR"))
+    ///     .stdout(is("FOO=BAR"))
     ///     .execute()
     ///     .unwrap();
     ///
     /// ::std::env::set_var("BAZ", "BAR");
     ///
-    /// assert_cli::Assert::command(&["printenv"])
-    ///     .stdout(assert_cli::Output::contains("BAZ=BAR"))
+    /// Assert::command(&["printenv"])
+    ///     .stdout(contains("BAZ=BAR"))
     ///     .execute()
     ///     .unwrap();
     /// ```
@@ -182,11 +187,12 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    /// Assert::command(&["cat", "non-existing-file"])
     ///     .fails()
     ///     .and()
-    ///     .stderr(assert_cli::Output::contains("non-existing-file"))
+    ///     .stderr(contains("non-existing-file"))
     ///     .unwrap();
     /// ```
     pub fn and(self) -> Self {
@@ -199,8 +205,9 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["echo", "42"])
+    /// Assert::command(&["echo", "42"])
     ///     .succeeds()
     ///     .unwrap();
     /// ```
@@ -219,11 +226,12 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    /// Assert::command(&["cat", "non-existing-file"])
     ///     .fails()
     ///     .and()
-    ///     .stderr(assert_cli::Output::contains("non-existing-file"))
+    ///     .stderr(contains("non-existing-file"))
     ///     .unwrap();
     /// ```
     pub fn fails(mut self) -> Self {
@@ -237,11 +245,12 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    /// Assert::command(&["cat", "non-existing-file"])
     ///     .fails_with(1)
     ///     .and()
-    ///     .stderr(assert_cli::Output::contains("non-existing-file"))
+    ///     .stderr(contains("non-existing-file"))
     ///     .unwrap();
     /// ```
     pub fn fails_with(mut self, expect_exit_code: i32) -> Self {
@@ -259,11 +268,12 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    /// Assert::command(&["cat", "non-existing-file"])
     ///     .ignore_status()
     ///     .and()
-    ///     .stderr(assert_cli::Output::contains("non-existing-file"))
+    ///     .stderr(contains("non-existing-file"))
     ///     .unwrap();
     /// ```
     ///
@@ -280,9 +290,10 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .stdout(assert_cli::Output::contains("42"))
+    /// Assert::command(&["echo", "42"])
+    ///     .stdout(contains("42"))
     ///     .unwrap();
     /// ```
     pub fn stdout(mut self, pred: Output) -> Self {
@@ -296,11 +307,12 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    /// Assert::command(&["cat", "non-existing-file"])
     ///     .fails_with(1)
     ///     .and()
-    ///     .stderr(assert_cli::Output::contains("non-existing-file"))
+    ///     .stderr(contains("non-existing-file"))
     ///     .unwrap();
     /// ```
     pub fn stderr(mut self, pred: Output) -> Self {
@@ -314,9 +326,10 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// let test = assert_cli::Assert::command(&["echo", "42"])
-    ///     .stdout(assert_cli::Output::contains("42"))
+    /// let test = Assert::command(&["echo", "42"])
+    ///     .stdout(contains("42"))
     ///     .execute();
     /// assert!(test.is_ok());
     /// ```
@@ -386,8 +399,9 @@ impl Assert {
     ///
     /// ```rust,should_panic="Assert CLI failure"
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["echo", "42"])
+    /// Assert::command(&["echo", "42"])
     ///     .fails()
     ///     .unwrap(); // panics
     /// ```
@@ -400,8 +414,9 @@ impl Assert {
 
 #[cfg(test)]
 mod test {
-    use super::*;
     use std::ffi::OsString;
+    use super::*;
+    use output::predicates::*;
 
     fn command() -> Assert {
         Assert::command(&["printenv"])
@@ -436,7 +451,7 @@ mod test {
 
         command()
             .with_env(&x.insert("key", "value").insert("key", "vv"))
-            .stdout(Output::contains("key=vv"))
+            .stdout(contains("key=vv"))
             .execute()
             .unwrap();
         // Granted, `insert` moved `x`, so we can no longer reference it, even
@@ -455,7 +470,7 @@ mod test {
 
         command()
             .with_env(y)
-            .stdout(Output::doesnt_contain("key=value"))
+            .stdout(doesnt_contain("key=value"))
             .execute()
             .unwrap();
     }
@@ -468,7 +483,7 @@ mod test {
         assert!(
             command()
                 .with_env(y)
-                .stdout(Output::is(""))
+                .stdout(is(""))
                 .execute()
                 .is_ok()
         );
@@ -479,19 +494,19 @@ mod test {
 
         command()
             .with_env(&vec![("bar", "baz")])
-            .stdout(Output::contains("bar=baz"))
+            .stdout(contains("bar=baz"))
             .execute()
             .unwrap();
 
         command()
             .with_env(&v)
-            .stdout(Output::contains("bar=baz"))
+            .stdout(contains("bar=baz"))
             .execute()
             .unwrap();
 
         command()
             .with_env(&vec![("bar", "baz")])
-            .stdout(Output::isnt(""))
+            .stdout(isnt(""))
             .execute()
             .unwrap();
     }
@@ -500,19 +515,19 @@ mod test {
     fn take_slice_of_strs() {
         command()
             .with_env(&[("bar", "BAZ")])
-            .stdout(Output::contains("bar=BAZ"))
+            .stdout(contains("bar=BAZ"))
             .execute()
             .unwrap();
 
         command()
             .with_env(&[("bar", "BAZ")][..])
-            .stdout(Output::contains("bar=BAZ"))
+            .stdout(contains("bar=BAZ"))
             .execute()
             .unwrap();
 
         command()
             .with_env([("bar", "BAZ")].as_ref())
-            .stdout(Output::contains("bar=BAZ"))
+            .stdout(contains("bar=BAZ"))
             .execute()
             .unwrap();
     }
@@ -523,13 +538,13 @@ mod test {
 
         command()
             .with_env(&[("bar".to_string(), "BAZ".to_string())])
-            .stdout(Output::contains("bar=BAZ"))
+            .stdout(contains("bar=BAZ"))
             .execute()
             .unwrap();
 
         command()
             .with_env(&[("bar".to_string(), "BAZ".to_string())][..])
-            .stdout(Output::contains("bar=BAZ"))
+            .stdout(contains("bar=BAZ"))
             .execute()
             .unwrap();
     }
@@ -538,13 +553,13 @@ mod test {
     fn take_slice() {
         command()
             .with_env(&[("hey", "ho")])
-            .stdout(Output::contains("hey=ho"))
+            .stdout(contains("hey=ho"))
             .execute()
             .unwrap();
 
         command()
             .with_env(&[("hey", "ho".to_string())])
-            .stdout(Output::contains("hey=ho"))
+            .stdout(contains("hey=ho"))
             .execute()
             .unwrap();
     }
@@ -553,7 +568,7 @@ mod test {
     fn take_string_i32() {
         command()
             .with_env(&[("bar", 3 as i32)])
-            .stdout(Output::contains("bar=3"))
+            .stdout(contains("bar=3"))
             .execute()
             .unwrap();
     }

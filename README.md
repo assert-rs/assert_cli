@@ -32,12 +32,13 @@ And here is one that will fail (and demonstrates running arbitrary commands):
 
 ```rust
 extern crate assert_cli;
+use assert_cli::prelude::*;
 
 fn main() {
-    assert_cli::Assert::command(&["ls", "foo-bar-foo"])
+    Assert::command(&["ls", "foo-bar-foo"])
         .fails()
         .and()
-        .stderr(assert_cli::Output::contains("foo-bar-foo"))
+        .stderr(contains("foo-bar-foo"))
         .unwrap();
 }
 ```
@@ -47,10 +48,11 @@ If you want to match the program's output _exactly_, you can use
 
 ```rust,should_panic
 #[macro_use] extern crate assert_cli;
+use assert_cli::prelude::*;
 
 fn main() {
     assert_cmd!(wc "README.md")
-        .stdout(assert_cli::Output::is("1337 README.md"))
+        .stdout(is("1337 README.md"))
         .unwrap();
 }
 ```

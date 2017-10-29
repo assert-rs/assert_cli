@@ -139,3 +139,17 @@ pub use assert::Assert;
 /// It allow you to define/override environment variables for one or more assertions.
 pub use environment::Environment;
 pub use output::Output;
+
+/// Convenience module to get all the good stuff
+///
+/// Glob import this module like this to quickly get all the important parts of
+/// this crate:
+///
+/// ```rust
+/// use assert_cli::prelude::*;
+/// ```
+pub mod prelude {
+    pub use assert::Assert;
+    pub use environment::Environment;
+    pub use output::predicates::*;
+}
