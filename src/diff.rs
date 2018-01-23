@@ -55,7 +55,7 @@ mod tests {
         println!("{}", render(&diff).unwrap());
         assert_eq!(
             render(&diff).unwrap(),
-            " \n\u{1b}[31m-lol\u{1b}[0m\n\u{1b}[32m+\u{1b}[0m\u{1b}[7;32myay\u{1b}[0m \n"
+            "\u{1b}[31m-lol\u{1b}[0m\n\u{1b}[32m+\u{1b}[0m\u{1b}[7;32myay\u{1b}[0m \n"
         )
     }
 
