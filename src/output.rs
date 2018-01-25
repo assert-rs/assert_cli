@@ -35,14 +35,12 @@ impl OutputAssertion {
                     }
                 }
             }
-            ExpectType::REGEX(ref self_regex, nmatches) => {
-                let regex_matches = self_regex.captures_iter(got).count();
-                if regex_matches != (nmatches as usize) {
-                    bail!(ErrorKind::OutputDoesntMatchRegexExactTimes(
+            ExpectType::REGEX(ref self_regex, _) => {
+                let result = self_regex.is_match(got);
+                if result != self.expected_result {
+                    bail!(ErrorKind::OutputDoesntMatchRegex(
                         String::from(self_regex.as_str()),
                         got.into(),
-                        nmatches,
-                        regex_matches,
                     ));
                 }
             }
@@ -69,12 +67,14 @@ impl OutputAssertion {
                     }
                 }
             }
-            ExpectType::REGEX(ref self_regex, _) => {
-                let result = self_regex.is_match(got);
-                if result != self.expected_result {
-                    bail!(ErrorKind::OutputDoesntMatchRegex(
+            ExpectType::REGEX(ref self_regex, nmatches) => {
+                let regex_matches = self_regex.captures_iter(got).count();
+                if regex_matches != (nmatches as usize) {
+                    bail!(ErrorKind::OutputDoesntMatchRegexExactTimes(
                         String::from(self_regex.as_str()),
                         got.into(),
+                        nmatches,
+                        regex_matches,
                     ));
                 }
             }
