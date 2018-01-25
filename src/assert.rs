@@ -1,7 +1,7 @@
 use environment::Environment;
 use error_chain::ChainedError;
 use errors::*;
-use output::{OutputAssertion, OutputKind};
+use output::{Output, OutputPredicate};
 use std::default;
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
@@ -18,7 +18,7 @@ pub struct Assert {
     current_dir: Option<PathBuf>,
     expect_success: Option<bool>,
     expect_exit_code: Option<i32>,
-    expect_output: Vec<OutputAssertion>,
+    expect_output: Vec<OutputPredicate>,
     stdin_contents: Option<String>,
 }
 
@@ -77,8 +77,9 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["echo", "1337"])
+    /// Assert::command(&["echo", "1337"])
     ///     .unwrap();
     /// ```
     pub fn command<S: AsRef<OsStr>>(cmd: &[S]) -> Self {
@@ -94,12 +95,12 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["echo"])
+    /// Assert::command(&["echo"])
     ///     .with_args(&["42"])
-    ///     .stdout().contains("42")
+    ///     .stdout(contains("42"))
     ///     .unwrap();
-    ///
     /// ```
     pub fn with_args<S: AsRef<OsStr>>(mut self, args: &[S]) -> Self {
         self.cmd.extend(args.into_iter().map(OsString::from));
@@ -112,10 +113,11 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["cat"])
+    /// Assert::command(&["cat"])
     ///     .stdin("42")
-    ///     .stdout().contains("42")
+    ///     .stdout(contains("42"))
     ///     .unwrap();
     /// ```
     pub fn stdin(mut self, contents: &str) -> Self {
@@ -129,10 +131,11 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["wc", "lib.rs"])
+    /// Assert::command(&["wc", "lib.rs"])
     ///     .current_dir(std::path::Path::new("src"))
-    ///     .stdout().contains("lib.rs")
+    ///     .stdout(contains("lib.rs"))
     ///     .execute()
     ///     .unwrap();
     /// ```
@@ -147,26 +150,28 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["printenv"])
+    /// Assert::command(&["printenv"])
     ///     .with_env(&[("TEST_ENV", "OK")])
-    ///     .stdout().contains("TEST_ENV=OK")
+    ///     .stdout(is("TEST_ENV=OK"))
     ///     .execute()
     ///     .unwrap();
     ///
     /// let env = assert_cli::Environment::empty()
     ///     .insert("FOO", "BAR");
     ///
-    /// assert_cli::Assert::command(&["printenv"])
+    /// Assert::command(&["printenv"])
     ///     .with_env(&env)
-    ///     .stdout().is("FOO=BAR")
+    ///     .stdout(is("FOO=BAR"))
     ///     .execute()
     ///     .unwrap();
     ///
     /// ::std::env::set_var("BAZ", "BAR");
     ///
-    /// assert_cli::Assert::command(&["printenv"])
-    ///     .stdout().contains("BAZ=BAR")
+    /// Assert::command(&["printenv"])
+    ///     .stdout(contains("BAZ=BAR"))
     ///     .execute()
     ///     .unwrap();
     /// ```
@@ -182,11 +187,12 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    /// Assert::command(&["cat", "non-existing-file"])
     ///     .fails()
     ///     .and()
-    ///     .stderr().contains("non-existing-file")
+    ///     .stderr(contains("non-existing-file"))
     ///     .unwrap();
     /// ```
     pub fn and(self) -> Self {
@@ -199,8 +205,9 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["echo", "42"])
+    /// Assert::command(&["echo", "42"])
     ///     .succeeds()
     ///     .unwrap();
     /// ```
@@ -219,11 +226,12 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    /// Assert::command(&["cat", "non-existing-file"])
     ///     .fails()
     ///     .and()
-    ///     .stderr().contains("non-existing-file")
+    ///     .stderr(contains("non-existing-file"))
     ///     .unwrap();
     /// ```
     pub fn fails(mut self) -> Self {
@@ -237,11 +245,12 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    /// Assert::command(&["cat", "non-existing-file"])
     ///     .fails_with(1)
     ///     .and()
-    ///     .stderr().is("cat: non-existing-file: No such file or directory")
+    ///     .stderr(contains("non-existing-file"))
     ///     .unwrap();
     /// ```
     pub fn fails_with(mut self, expect_exit_code: i32) -> Self {
@@ -259,11 +268,12 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    /// Assert::command(&["cat", "non-existing-file"])
     ///     .ignore_status()
     ///     .and()
-    ///     .stderr().is("cat: non-existing-file: No such file or directory")
+    ///     .stderr(contains("non-existing-file"))
     ///     .unwrap();
     /// ```
     ///
@@ -280,17 +290,15 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .stdout().contains("42")
+    /// Assert::command(&["echo", "42"])
+    ///     .stdout(contains("42"))
     ///     .unwrap();
     /// ```
-    pub fn stdout(self) -> OutputAssertionBuilder {
-        OutputAssertionBuilder {
-            assertion: self,
-            kind: OutputKind::StdOut,
-            expected_result: true,
-        }
+    pub fn stdout(mut self, pred: Output) -> Self {
+        self.expect_output.push(OutputPredicate::stdout(pred));
+        self
     }
 
     /// Create an assertion for stdout's contents
@@ -299,19 +307,17 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["cat", "non-existing-file"])
+    /// Assert::command(&["cat", "non-existing-file"])
     ///     .fails_with(1)
     ///     .and()
-    ///     .stderr().is("cat: non-existing-file: No such file or directory")
+    ///     .stderr(contains("non-existing-file"))
     ///     .unwrap();
     /// ```
-    pub fn stderr(self) -> OutputAssertionBuilder {
-        OutputAssertionBuilder {
-            assertion: self,
-            kind: OutputKind::StdErr,
-            expected_result: true,
-        }
+    pub fn stderr(mut self, pred: Output) -> Self {
+        self.expect_output.push(OutputPredicate::stderr(pred));
+        self
     }
 
     /// Execute the command and check the assertions.
@@ -320,17 +326,18 @@ impl Assert {
     ///
     /// ```rust
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// let test = assert_cli::Assert::command(&["echo", "42"])
-    ///     .stdout().contains("42")
+    /// let test = Assert::command(&["echo", "42"])
+    ///     .stdout(contains("42"))
     ///     .execute();
     /// assert!(test.is_ok());
     /// ```
     pub fn execute(self) -> Result<()> {
-        let cmd = &self.cmd[0];
+        let bin = &self.cmd[0];
 
         let args: Vec<_> = self.cmd.iter().skip(1).collect();
-        let mut command = Command::new(cmd);
+        let mut command = Command::new(bin);
         let command = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -361,30 +368,26 @@ impl Assert {
             if expect_success != output.status.success() {
                 let out = String::from_utf8_lossy(&output.stdout).to_string();
                 let err = String::from_utf8_lossy(&output.stderr).to_string();
-                bail!(ErrorKind::StatusMismatch(
-                    self.cmd.clone(),
-                    expect_success,
-                    out,
-                    err,
-                ));
+                let err: Error = ErrorKind::StatusMismatch(expect_success, out, err).into();
+                bail!(err.chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone())));
             }
         }
 
         if self.expect_exit_code.is_some() && self.expect_exit_code != output.status.code() {
             let out = String::from_utf8_lossy(&output.stdout).to_string();
             let err = String::from_utf8_lossy(&output.stderr).to_string();
-            bail!(ErrorKind::ExitCodeMismatch(
-                self.cmd.clone(),
-                self.expect_exit_code,
-                output.status.code(),
-                out,
-                err,
-            ));
+            let err: Error =
+                ErrorKind::ExitCodeMismatch(self.expect_exit_code, output.status.code(), out, err)
+                    .into();
+            bail!(err.chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone())));
         }
 
         self.expect_output
             .iter()
-            .map(|a| a.execute(&output, &self.cmd))
+            .map(|a| {
+                a.verify_output(&output)
+                    .chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone()))
+            })
             .collect::<Result<Vec<()>>>()?;
 
         Ok(())
@@ -396,8 +399,9 @@ impl Assert {
     ///
     /// ```rust,should_panic="Assert CLI failure"
     /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
     ///
-    /// assert_cli::Assert::command(&["echo", "42"])
+    /// Assert::command(&["echo", "42"])
     ///     .fails()
     ///     .unwrap(); // panics
     /// ```
@@ -408,111 +412,11 @@ impl Assert {
     }
 }
 
-/// Assertions for command output.
-#[derive(Debug)]
-#[must_use]
-pub struct OutputAssertionBuilder {
-    assertion: Assert,
-    kind: OutputKind,
-    expected_result: bool,
-}
-
-impl OutputAssertionBuilder {
-    /// Negate the assertion predicate
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// extern crate assert_cli;
-    ///
-    /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .stdout().not().contains("73")
-    ///     .unwrap();
-    /// ```
-    // No clippy, we don't want to implement std::ops::Not :)
-    #[cfg_attr(feature = "cargo-clippy", allow(should_implement_trait))]
-    pub fn not(mut self) -> Self {
-        self.expected_result = !self.expected_result;
-        self
-    }
-
-    /// Expect the command's output to **contain** `output`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// extern crate assert_cli;
-    ///
-    /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .stdout().contains("42")
-    ///     .unwrap();
-    /// ```
-    pub fn contains<O: Into<String>>(mut self, output: O) -> Assert {
-        self.assertion.expect_output.push(OutputAssertion {
-            expect: output.into(),
-            fuzzy: true,
-            expected_result: self.expected_result,
-            kind: self.kind,
-        });
-        self.assertion
-    }
-
-    /// Expect the command to output **exactly** this `output`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// extern crate assert_cli;
-    ///
-    /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .stdout().is("42")
-    ///     .unwrap();
-    /// ```
-    pub fn is<O: Into<String>>(mut self, output: O) -> Assert {
-        self.assertion.expect_output.push(OutputAssertion {
-            expect: output.into(),
-            fuzzy: false,
-            expected_result: self.expected_result,
-            kind: self.kind,
-        });
-        self.assertion
-    }
-
-    /// Expect the command's output to not **contain** `output`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// extern crate assert_cli;
-    ///
-    /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .stdout().doesnt_contain("73")
-    ///     .unwrap();
-    /// ```
-    pub fn doesnt_contain<O: Into<String>>(self, output: O) -> Assert {
-        self.not().contains(output)
-    }
-
-    /// Expect the command to output to not be **exactly** this `output`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// extern crate assert_cli;
-    ///
-    /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .stdout().isnt("73")
-    ///     .unwrap();
-    /// ```
-    pub fn isnt<O: Into<String>>(self, output: O) -> Assert {
-        self.not().is(output)
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use super::*;
     use std::ffi::OsString;
+    use super::*;
+    use output::predicates::*;
 
     fn command() -> Assert {
         Assert::command(&["printenv"])
@@ -522,7 +426,11 @@ mod test {
     fn take_ownership() {
         let x = Environment::inherit();
 
-        command().with_env(x.clone()).with_env(&x).with_env(x);
+        command()
+            .with_env(x.clone())
+            .with_env(&x)
+            .with_env(x)
+            .unwrap();
     }
 
     #[test]
@@ -543,8 +451,7 @@ mod test {
 
         command()
             .with_env(&x.insert("key", "value").insert("key", "vv"))
-            .stdout()
-            .contains("key=vv")
+            .stdout(contains("key=vv"))
             .execute()
             .unwrap();
         // Granted, `insert` moved `x`, so we can no longer reference it, even
@@ -563,9 +470,7 @@ mod test {
 
         command()
             .with_env(y)
-            .stdout()
-            .not()
-            .contains("key=value")
+            .stdout(doesnt_contain("key=value"))
             .execute()
             .unwrap();
     }
@@ -575,7 +480,13 @@ mod test {
         // In-place modification while allowing later accesses to the `Environment`
         let y = Environment::empty();
 
-        assert!(command().with_env(y).stdout().is("").execute().is_ok());
+        assert!(
+            command()
+                .with_env(y)
+                .stdout(is(""))
+                .execute()
+                .is_ok()
+        );
     }
     #[test]
     fn take_vec() {
@@ -583,22 +494,19 @@ mod test {
 
         command()
             .with_env(&vec![("bar", "baz")])
-            .stdout()
-            .contains("bar=baz")
+            .stdout(contains("bar=baz"))
             .execute()
             .unwrap();
 
         command()
             .with_env(&v)
-            .stdout()
-            .contains("bar=baz")
+            .stdout(contains("bar=baz"))
             .execute()
             .unwrap();
 
         command()
             .with_env(&vec![("bar", "baz")])
-            .stdout()
-            .isnt("")
+            .stdout(isnt(""))
             .execute()
             .unwrap();
     }
@@ -607,22 +515,19 @@ mod test {
     fn take_slice_of_strs() {
         command()
             .with_env(&[("bar", "BAZ")])
-            .stdout()
-            .contains("bar=BAZ")
+            .stdout(contains("bar=BAZ"))
             .execute()
             .unwrap();
 
         command()
             .with_env(&[("bar", "BAZ")][..])
-            .stdout()
-            .contains("bar=BAZ")
+            .stdout(contains("bar=BAZ"))
             .execute()
             .unwrap();
 
         command()
             .with_env([("bar", "BAZ")].as_ref())
-            .stdout()
-            .contains("bar=BAZ")
+            .stdout(contains("bar=BAZ"))
             .execute()
             .unwrap();
     }
@@ -633,15 +538,13 @@ mod test {
 
         command()
             .with_env(&[("bar".to_string(), "BAZ".to_string())])
-            .stdout()
-            .contains("bar=BAZ")
+            .stdout(contains("bar=BAZ"))
             .execute()
             .unwrap();
 
         command()
             .with_env(&[("bar".to_string(), "BAZ".to_string())][..])
-            .stdout()
-            .contains("bar=BAZ")
+            .stdout(contains("bar=BAZ"))
             .execute()
             .unwrap();
     }
@@ -650,15 +553,13 @@ mod test {
     fn take_slice() {
         command()
             .with_env(&[("hey", "ho")])
-            .stdout()
-            .contains("hey=ho")
+            .stdout(contains("hey=ho"))
             .execute()
             .unwrap();
 
         command()
             .with_env(&[("hey", "ho".to_string())])
-            .stdout()
-            .contains("hey=ho")
+            .stdout(contains("hey=ho"))
             .execute()
             .unwrap();
     }
@@ -667,8 +568,7 @@ mod test {
     fn take_string_i32() {
         command()
             .with_env(&[("bar", 3 as i32)])
-            .stdout()
-            .contains("bar=3")
+            .stdout(contains("bar=3"))
             .execute()
             .unwrap();
     }

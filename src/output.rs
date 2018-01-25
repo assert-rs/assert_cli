@@ -2,35 +2,16 @@ use self::errors::*;
 pub use self::errors::{Error, ErrorKind};
 use diff;
 use difference::Changeset;
-use std::ffi::OsString;
-use std::process::Output;
+use std::process;
 
-#[derive(Debug, Clone)]
-pub struct OutputAssertion {
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IsPredicate {
     pub expect: String,
-    pub fuzzy: bool,
     pub expected_result: bool,
-    pub kind: OutputKind,
 }
 
-impl OutputAssertion {
-    fn matches_fuzzy(&self, got: &str) -> Result<()> {
-        let result = got.contains(&self.expect);
-        if result != self.expected_result {
-            if self.expected_result {
-                bail!(ErrorKind::OutputDoesntContain(
-                    self.expect.clone(),
-                    got.into()
-                ));
-            } else {
-                bail!(ErrorKind::OutputContains(self.expect.clone(), got.into()));
-            }
-        }
-
-        Ok(())
-    }
-
-    fn matches_exact(&self, got: &str) -> Result<()> {
+impl IsPredicate {
+    pub fn verify_str(&self, got: &str) -> Result<()> {
         let differences = Changeset::new(self.expect.trim(), got.trim(), "\n");
         let result = differences.distance == 0;
 
@@ -49,20 +30,146 @@ impl OutputAssertion {
 
         Ok(())
     }
+}
 
-    pub fn execute(&self, output: &Output, cmd: &[OsString]) -> super::errors::Result<()> {
-        let observed = String::from_utf8_lossy(self.kind.select(output));
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ContainsPredicate {
+    pub expect: String,
+    pub expected_result: bool,
+}
 
-        let result = if self.fuzzy {
-            self.matches_fuzzy(&observed)
-        } else {
-            self.matches_exact(&observed)
-        };
-        result.map_err(|e| {
-            super::errors::ErrorKind::OutputMismatch(cmd.to_vec(), e, self.kind)
-        })?;
+impl ContainsPredicate {
+    pub fn verify_str(&self, got: &str) -> Result<()> {
+        let result = got.contains(&self.expect);
+        if result != self.expected_result {
+            if self.expected_result {
+                bail!(ErrorKind::OutputDoesntContain(
+                    self.expect.clone(),
+                    got.into()
+                ));
+            } else {
+                bail!(ErrorKind::OutputContains(self.expect.clone(), got.into()));
+            }
+        }
 
         Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
+enum StrPredicate {
+    Is(IsPredicate),
+    Contains(ContainsPredicate),
+}
+
+impl StrPredicate {
+    pub fn verify_str(&self, got: &str) -> Result<()> {
+        match *self {
+            StrPredicate::Is(ref pred) => pred.verify_str(got),
+            StrPredicate::Contains(ref pred) => pred.verify_str(got),
+        }
+    }
+}
+
+/// Assertions for command output.
+#[derive(Debug, Clone)]
+pub struct Output {
+    pred: StrPredicate,
+}
+
+impl Output {
+    fn new(pred: StrPredicate) -> Self {
+        Self { pred }
+    }
+
+    pub(crate) fn verify_str(&self, got: &str) -> Result<()> {
+        self.pred.verify_str(got)
+    }
+}
+
+/// Predicate helpers to match against outputs
+pub mod predicates {
+    use super::*;
+
+    /// Expect the command's output to **contain** `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    /// use assert_cli::prelude::*;
+    ///
+    /// Assert::command(&["echo"])
+    ///     .with_args(&["42"])
+    ///     .stdout(contains("42"))
+    ///     .unwrap();
+    /// ```
+    pub fn contains<O: Into<String>>(output: O) -> Output {
+        let pred = ContainsPredicate {
+            expect: output.into(),
+            expected_result: true,
+        };
+        Output::new(StrPredicate::Contains(pred))
+    }
+
+    /// Expect the command to output **exactly** this `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo"])
+    ///     .with_args(&["42"])
+    ///     .stdout(assert_cli::Output::is("42"))
+    ///     .unwrap();
+    /// ```
+    pub fn is<O: Into<String>>(output: O) -> Output {
+        let pred = IsPredicate {
+            expect: output.into(),
+            expected_result: true,
+        };
+        Output::new(StrPredicate::Is(pred))
+    }
+
+    /// Expect the command's output to not **contain** `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo"])
+    ///     .with_args(&["42"])
+    ///     .stdout(assert_cli::Output::doesnt_contain("73"))
+    ///     .unwrap();
+    /// ```
+    pub fn doesnt_contain<O: Into<String>>(output: O) -> Output {
+        let pred = ContainsPredicate {
+            expect: output.into(),
+            expected_result: false,
+        };
+        Output::new(StrPredicate::Contains(pred))
+    }
+
+    /// Expect the command to output to not be **exactly** this `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo"])
+    ///     .with_args(&["42"])
+    ///     .stdout(assert_cli::Output::isnt("73"))
+    ///     .unwrap();
+    /// ```
+    pub fn isnt<O: Into<String>>(output: O) -> Output {
+        let pred = IsPredicate {
+            expect: output.into(),
+            expected_result: false,
+        };
+        Output::new(StrPredicate::Is(pred))
     }
 }
 
@@ -73,11 +180,45 @@ pub enum OutputKind {
 }
 
 impl OutputKind {
-    pub fn select(self, o: &Output) -> &[u8] {
+    pub fn select(self, o: &process::Output) -> &[u8] {
         match self {
             OutputKind::StdOut => &o.stdout,
             OutputKind::StdErr => &o.stderr,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct OutputPredicate {
+    kind: OutputKind,
+    pred: Output,
+}
+
+impl OutputPredicate {
+    pub fn stdout(pred: Output) -> Self {
+        Self {
+            kind: OutputKind::StdOut,
+            pred: pred,
+        }
+    }
+
+    pub fn stderr(pred: Output) -> Self {
+        Self {
+            kind: OutputKind::StdErr,
+            pred: pred,
+        }
+    }
+
+    pub(crate) fn verify_str(&self, got: &str) -> Result<()> {
+        let kind = self.kind;
+        self.pred
+            .verify_str(got)
+            .chain_err(|| ErrorKind::OutputMismatch(kind))
+    }
+
+    pub(crate) fn verify_output(&self, got: &process::Output) -> Result<()> {
+        let got = String::from_utf8_lossy(self.kind.select(got));
+        self.verify_str(&got)
     }
 }
 
@@ -102,6 +243,13 @@ mod errors {
             OutputMatches(got: String) {
                 description("Output was not as expected")
                 display("expected to not match\noutput=```{}```", got)
+            }
+            OutputMismatch(kind: super::OutputKind) {
+                description("Output was not as expected")
+                display(
+                    "Unexpected {:?}",
+                    kind
+                )
             }
         }
     }

@@ -18,7 +18,7 @@
 //!
 //! ```rust
 //! assert_cli::Assert::command(&["echo", "42"])
-//!     .stdout().contains("42")
+//!     .stdout(assert_cli::Output::contains("42"))
 //!     .unwrap();
 //! ```
 //!
@@ -26,7 +26,7 @@
 //!
 //! ```rust,should_panic
 //! assert_cli::Assert::command(&["echo", "42"])
-//!     .stdout().is("1337")
+//!     .stdout(assert_cli::Output::is("1337"))
 //!     .unwrap();
 //! ```
 //!
@@ -45,7 +45,7 @@
 //! ```rust
 //! # #[macro_use] extern crate assert_cli;
 //! # fn main() {
-//! assert_cmd!(echo "42").stdout().contains("42").unwrap();
+//! assert_cmd!(echo "42").stdout(assert_cli::Output::contains("42")).unwrap();
 //! # }
 //! ```
 //!
@@ -88,9 +88,9 @@
 //! # #[macro_use] extern crate assert_cli;
 //! # fn main() {
 //! assert_cmd!(echo "Hello world! The ansswer is 42.")
-//!     .stdout().contains("Hello world")
-//!     .stdout().contains("42")
-//!     .stderr().is("")
+//!     .stdout(assert_cli::Output::contains("Hello world"))
+//!     .stdout(assert_cli::Output::contains("42"))
+//!     .stderr(assert_cli::Output::is(""))
 //!     .unwrap();
 //! # }
 //! ```
@@ -110,7 +110,7 @@
 //! ```rust
 //! # #[macro_use] extern crate assert_cli;
 //! # fn main() {
-//! let x = assert_cmd!(echo "1337").stdout().is("42").execute();
+//! let x = assert_cmd!(echo "1337").stdout(assert_cli::Output::is("42")).execute();
 //! assert!(x.is_err());
 //! # }
 //! ```
@@ -130,13 +130,26 @@ mod macros;
 pub use macros::flatten_escaped_string;
 
 mod output;
-
 mod diff;
-
 mod assert;
+
 pub use assert::Assert;
-pub use assert::OutputAssertionBuilder;
 /// Environment is a re-export of the Environment crate
 ///
 /// It allow you to define/override environment variables for one or more assertions.
 pub use environment::Environment;
+pub use output::Output;
+
+/// Convenience module to get all the good stuff
+///
+/// Glob import this module like this to quickly get all the important parts of
+/// this crate:
+///
+/// ```rust
+/// use assert_cli::prelude::*;
+/// ```
+pub mod prelude {
+    pub use assert::Assert;
+    pub use environment::Environment;
+    pub use output::predicates::*;
+}

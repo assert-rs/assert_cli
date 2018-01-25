@@ -22,7 +22,7 @@ use std::borrow::Cow;
 /// # fn main() {
 /// assert_cmd!(echo "Launch sequence initiated.\nNo errors whatsoever!\n")
 ///     .succeeds()
-///     .stdout().contains("No errors whatsoever")
+///     .stdout(assert_cli::Output::contains("No errors whatsoever"))
 ///     .unwrap();
 /// # }
 /// ```
