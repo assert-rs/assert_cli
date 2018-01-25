@@ -10,7 +10,7 @@ use std::process::Output;
 #[derive(Debug, Clone)]
 pub enum ExpectType {
     STRING(String),
-    REGEX(regex::Regex),
+    REGEX(regex::Regex, u32),
     //perdicate?
 }
 
@@ -35,13 +35,14 @@ impl OutputAssertion {
                     }
                 }
             }
-            // This brach here makes no sense unless we support matching multiple times
-            ExpectType::REGEX(ref self_regex) => {
-                let result = self_regex.is_match(got);
-                if result != self.expected_result {
-                    bail!(ErrorKind::OutputDoesntMatchRegex(
+            ExpectType::REGEX(ref self_regex, nmatches) => {
+                let regex_matches = self_regex.captures_iter(got).count();
+                if regex_matches != (nmatches as usize) {
+                    bail!(ErrorKind::OutputDoesntMatchRegexExactTimes(
                         String::from(self_regex.as_str()),
                         got.into(),
+                        nmatches,
+                        regex_matches,
                     ));
                 }
             }
@@ -68,7 +69,7 @@ impl OutputAssertion {
                     }
                 }
             }
-            ExpectType::REGEX(ref self_regex) => {
+            ExpectType::REGEX(ref self_regex, _) => {
                 let result = self_regex.is_match(got);
                 if result != self.expected_result {
                     bail!(ErrorKind::OutputDoesntMatchRegex(
@@ -137,6 +138,10 @@ mod errors {
             OutputDoesntMatchRegex(regex: String, got: String) {
                 description("Regex did not match")
                 display("expected {} to match\noutput=```{}```", regex, got)
+            }
+            OutputDoesntMatchRegexExactTimes(regex: String, got: String, expected_times: u32, got_times: usize) {
+                description("Regex did not match exact number of times")
+                display("expected {} to match {} {} times\noutput=```{}```", regex, got, expected_times, got_times)
             }
         }
     }

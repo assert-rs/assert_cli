@@ -480,7 +480,7 @@ impl OutputAssertionBuilder {
         self.assertion
     }
 
-    /// Expect the command to output **exactly** this `output`.
+    /// Expect the command to match **however many times** this `output`.
     ///
     /// # Examples
     ///
@@ -494,7 +494,29 @@ impl OutputAssertionBuilder {
     /// ```
     pub fn matches(mut self, output: regex::Regex) -> Assert {
         self.assertion.expect_output.push(OutputAssertion {
-            expect: ExpectType::REGEX(output),
+            expect: ExpectType::REGEX(output, 0),
+            fuzzy: true,
+            expected_result: self.expected_result,
+            kind: self.kind,
+        });
+        self.assertion
+    }
+
+    /// Expect the command to match `nmatches` times this `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    /// extern crate regex;
+    /// let re = regex::Regex::new("[0-9]{1}").unwrap();
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .stdout().matches_ntimes(re, 2)
+    ///     .unwrap();
+    /// ```
+    pub fn matches_ntimes(mut self, output: regex::Regex, nmatches: u32) -> Assert {
+        self.assertion.expect_output.push(OutputAssertion {
+            expect: ExpectType::REGEX(output, nmatches),
             fuzzy: false,
             expected_result: self.expected_result,
             kind: self.kind,

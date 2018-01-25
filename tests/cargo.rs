@@ -34,3 +34,15 @@ fn matches_with_regex() {
         .is("")
         .unwrap();
 }
+
+#[test]
+fn matches_with_regex_ntimes() {
+    let re = regex::Regex::new("[0-9]{1}").unwrap();
+    assert_cli::Assert::main_binary()
+        .with_env(assert_cli::Environment::inherit().insert("stdout", "42"))
+        .stdout()
+        .matches_ntimes(re, 2)
+        .stderr()
+        .is("")
+        .unwrap();
+}
