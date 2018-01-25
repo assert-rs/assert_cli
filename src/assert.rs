@@ -1,7 +1,9 @@
+extern crate regex;
+
 use environment::Environment;
 use error_chain::ChainedError;
 use errors::*;
-use output::{OutputAssertion, OutputKind};
+use output::{OutputAssertion, OutputKind, ExpectType};
 use std::default;
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
@@ -344,9 +346,9 @@ impl Assert {
             None => command,
         };
 
-        let mut spawned = command
-            .spawn()
-            .chain_err(|| ErrorKind::SpawnFailed(self.cmd.clone()))?;
+        let mut spawned = command.spawn().chain_err(
+            || ErrorKind::SpawnFailed(self.cmd.clone()),
+        )?;
 
         if let Some(ref contents) = self.stdin_contents {
             spawned
@@ -449,7 +451,7 @@ impl OutputAssertionBuilder {
     /// ```
     pub fn contains<O: Into<String>>(mut self, output: O) -> Assert {
         self.assertion.expect_output.push(OutputAssertion {
-            expect: output.into(),
+            expect: ExpectType::STRING(output.into()),
             fuzzy: true,
             expected_result: self.expected_result,
             kind: self.kind,
@@ -470,7 +472,29 @@ impl OutputAssertionBuilder {
     /// ```
     pub fn is<O: Into<String>>(mut self, output: O) -> Assert {
         self.assertion.expect_output.push(OutputAssertion {
-            expect: output.into(),
+            expect: ExpectType::STRING(output.into()),
+            fuzzy: false,
+            expected_result: self.expected_result,
+            kind: self.kind,
+        });
+        self.assertion
+    }
+
+    /// Expect the command to output **exactly** this `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    /// extern crate regex;
+    /// let re = regex::Regex::new("[0-9]{2}").unwrap();
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .stdout().matches(re)
+    ///     .unwrap();
+    /// ```
+    pub fn matches(mut self, output: regex::Regex) -> Assert {
+        self.assertion.expect_output.push(OutputAssertion {
+            expect: ExpectType::REGEX(output),
             fuzzy: false,
             expected_result: self.expected_result,
             kind: self.kind,

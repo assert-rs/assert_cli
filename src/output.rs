@@ -1,3 +1,5 @@
+extern crate regex;
+
 use self::errors::*;
 pub use self::errors::{Error, ErrorKind};
 use diff;
@@ -6,8 +8,15 @@ use std::ffi::OsString;
 use std::process::Output;
 
 #[derive(Debug, Clone)]
+pub enum ExpectType {
+    STRING(String),
+    REGEX(regex::Regex),
+    //perdicate?
+}
+
+#[derive(Debug, Clone)]
 pub struct OutputAssertion {
-    pub expect: String,
+    pub expect: ExpectType,
     pub fuzzy: bool,
     pub expected_result: bool,
     pub kind: OutputKind,
@@ -15,38 +24,60 @@ pub struct OutputAssertion {
 
 impl OutputAssertion {
     fn matches_fuzzy(&self, got: &str) -> Result<()> {
-        let result = got.contains(&self.expect);
-        if result != self.expected_result {
-            if self.expected_result {
-                bail!(ErrorKind::OutputDoesntContain(
-                    self.expect.clone(),
-                    got.into()
-                ));
-            } else {
-                bail!(ErrorKind::OutputContains(self.expect.clone(), got.into()));
+        match self.expect {
+            ExpectType::STRING(ref self_str) => {
+                let result = got.contains(self_str);
+                if result != self.expected_result {
+                    if self.expected_result {
+                        bail!(ErrorKind::OutputDoesntContain(self_str.clone(), got.into()));
+                    } else {
+                        bail!(ErrorKind::OutputContains(self_str.clone(), got.into()));
+                    }
+                }
+            }
+            // This brach here makes no sense unless we support matching multiple times
+            ExpectType::REGEX(ref self_regex) => {
+                let result = self_regex.is_match(got);
+                if result != self.expected_result {
+                    bail!(ErrorKind::OutputDoesntMatchRegex(
+                        String::from(self_regex.as_str()),
+                        got.into(),
+                    ));
+                }
             }
         }
-
         Ok(())
     }
 
     fn matches_exact(&self, got: &str) -> Result<()> {
-        let differences = Changeset::new(self.expect.trim(), got.trim(), "\n");
-        let result = differences.distance == 0;
+        match self.expect {
+            ExpectType::STRING(ref self_str) => {
+                let differences = Changeset::new(self_str.trim(), got.trim(), "\n");
+                let result = differences.distance == 0;
 
-        if result != self.expected_result {
-            if self.expected_result {
-                let nice_diff = diff::render(&differences)?;
-                bail!(ErrorKind::OutputDoesntMatch(
-                    self.expect.clone(),
-                    got.to_owned(),
-                    nice_diff
-                ));
-            } else {
-                bail!(ErrorKind::OutputMatches(got.to_owned()));
+                if result != self.expected_result {
+                    if self.expected_result {
+                        let nice_diff = diff::render(&differences)?;
+                        bail!(ErrorKind::OutputDoesntMatch(
+                            self_str.clone(),
+                            got.to_owned(),
+                            nice_diff,
+                        ));
+                    } else {
+                        bail!(ErrorKind::OutputMatches(got.to_owned()));
+                    }
+                }
+            }
+            ExpectType::REGEX(ref self_regex) => {
+                let result = self_regex.is_match(got);
+                if result != self.expected_result {
+                    bail!(ErrorKind::OutputDoesntMatchRegex(
+                        String::from(self_regex.as_str()),
+                        got.into(),
+                    ));
+                }
             }
         }
-
         Ok(())
     }
 
@@ -102,6 +133,10 @@ mod errors {
             OutputMatches(got: String) {
                 description("Output was not as expected")
                 display("expected to not match\noutput=```{}```", got)
+            }
+            OutputDoesntMatchRegex(regex: String, got: String) {
+                description("Regex did not match")
+                display("expected {} to match\noutput=```{}```", regex, got)
             }
         }
     }
