@@ -1,13 +1,15 @@
-use environment::Environment;
-use error_chain::ChainedError;
-use errors::*;
-use output::{Output, OutputKind, OutputPredicate};
 use std::default;
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::vec::Vec;
+
+use environment::Environment;
+use error_chain::ChainedError;
+
+use errors::*;
+use output::{Content, Output, OutputKind, OutputPredicate};
 
 /// Assertions for a specific command.
 #[derive(Debug)]
@@ -375,7 +377,7 @@ impl Assert {
 
         self.expect_output
             .iter()
-            .map(|a| a.verify_output(&output).chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone())))
+            .map(|a| a.verify(&output).chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone())))
             .collect::<Result<Vec<()>>>()?;
 
         Ok(())
@@ -419,7 +421,7 @@ impl OutputAssertionBuilder {
     ///     .stdout().contains("42")
     ///     .unwrap();
     /// ```
-    pub fn contains<O: Into<String>>(mut self, output: O) -> Assert {
+    pub fn contains<O: Into<Content>>(mut self, output: O) -> Assert {
         let pred = OutputPredicate::new(self.kind, Output::contains(output));
         self.assertion.expect_output.push(pred);
         self.assertion
@@ -436,7 +438,7 @@ impl OutputAssertionBuilder {
     ///     .stdout().is("42")
     ///     .unwrap();
     /// ```
-    pub fn is<O: Into<String>>(mut self, output: O) -> Assert {
+    pub fn is<O: Into<Content>>(mut self, output: O) -> Assert {
         let pred = OutputPredicate::new(self.kind, Output::is(output));
         self.assertion.expect_output.push(pred);
         self.assertion
@@ -453,7 +455,7 @@ impl OutputAssertionBuilder {
     ///     .stdout().doesnt_contain("73")
     ///     .unwrap();
     /// ```
-    pub fn doesnt_contain<O: Into<String>>(mut self, output: O) -> Assert {
+    pub fn doesnt_contain<O: Into<Content>>(mut self, output: O) -> Assert {
         let pred = OutputPredicate::new(self.kind, Output::doesnt_contain(output));
         self.assertion.expect_output.push(pred);
         self.assertion
@@ -470,7 +472,7 @@ impl OutputAssertionBuilder {
     ///     .stdout().isnt("73")
     ///     .unwrap();
     /// ```
-    pub fn isnt<O: Into<String>>(mut self, output: O) -> Assert {
+    pub fn isnt<O: Into<Content>>(mut self, output: O) -> Assert {
         let pred = OutputPredicate::new(self.kind, Output::isnt(output));
         self.assertion.expect_output.push(pred);
         self.assertion
