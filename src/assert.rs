@@ -19,7 +19,7 @@ pub struct Assert {
     expect_success: Option<bool>,
     expect_exit_code: Option<i32>,
     expect_output: Vec<OutputPredicate>,
-    stdin_contents: Option<String>,
+    stdin_contents: Option<Vec<u8>>,
 }
 
 impl default::Default for Assert {
@@ -118,8 +118,8 @@ impl Assert {
     ///     .stdout().contains("42")
     ///     .unwrap();
     /// ```
-    pub fn stdin(mut self, contents: &str) -> Self {
-        self.stdin_contents = Some(String::from(contents));
+    pub fn stdin<S: Into<Vec<u8>>>(mut self, contents: S) -> Self {
+        self.stdin_contents = Some(contents.into());
         self
     }
 
@@ -351,7 +351,7 @@ impl Assert {
                 .stdin
                 .as_mut()
                 .expect("Couldn't get mut ref to command stdin")
-                .write_all(contents.as_bytes())?;
+                .write_all(contents)?;
         }
         let output = spawned.wait_with_output()?;
 
