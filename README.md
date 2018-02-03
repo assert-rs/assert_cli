@@ -37,20 +37,20 @@ fn main() {
     assert_cli::Assert::command(&["ls", "foo-bar-foo"])
         .fails()
         .and()
-        .stderr().contains("foo-bar-foo")
+        .stderr(assert_cli::Output::contains("foo-bar-foo"))
         .unwrap();
 }
 ```
 
 If you want to match the program's output _exactly_, you can use
-`stdout().is` (and shows the macro form of `command`):
+`Output::is` (and shows the macro form of `command`):
 
 ```rust,should_panic
 #[macro_use] extern crate assert_cli;
 
 fn main() {
     assert_cmd!(wc "README.md")
-        .stdout().is("1337 README.md")
+        .stdout(assert_cli::Output::is("1337 README.md"))
         .unwrap();
 }
 ```
