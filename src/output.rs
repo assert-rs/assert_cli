@@ -1,8 +1,12 @@
+use std::fmt;
+use std::process;
+use std::rc;
+
+use difference::Changeset;
+
+use diff;
 use self::errors::*;
 pub use self::errors::{Error, ErrorKind};
-use diff;
-use difference::Changeset;
-use std::process;
 
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,10 +61,34 @@ impl ContainsPredicate {
     }
 }
 
+#[derive(Clone)]
+struct FnPredicate {
+    pub pred: rc::Rc<Fn(&str) -> bool>,
+    pub msg: String,
+}
+
+impl FnPredicate {
+    pub fn verify_str(&self, got: &str) -> Result<()> {
+        let pred = &self.pred;
+        if ! pred(got) {
+            bail!(ErrorKind::PredicateFailed(got.into(), self.msg.clone()));
+        }
+
+        Ok(())
+    }
+}
+
+impl fmt::Debug for FnPredicate {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.msg)
+    }
+}
+
 #[derive(Debug, Clone)]
 enum StrPredicate {
     Is(IsPredicate),
     Contains(ContainsPredicate),
+	Fn(FnPredicate),
 }
 
 impl StrPredicate {
@@ -68,6 +96,7 @@ impl StrPredicate {
         match *self {
             StrPredicate::Is(ref pred) => pred.verify_str(got),
             StrPredicate::Contains(ref pred) => pred.verify_str(got),
+            StrPredicate::Fn(ref pred) => pred.verify_str(got),
         }
     }
 }
@@ -159,6 +188,28 @@ impl Output {
         Self::new(StrPredicate::Is(pred))
     }
 
+    /// Expect the command output to satisfy the given predicate.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "-n", "42"])
+    ///     .stdout().satisfies(|x| x.len() == 2, "bad length")
+    ///     .unwrap();
+    /// ```
+    pub fn satisfies<F, M>(pred: F, msg: M) -> Self
+        where F: 'static + Fn(&str) -> bool,
+              M: Into<String>
+    {
+        let pred = FnPredicate {
+            pred: rc::Rc::new(pred),
+            msg: msg.into(),
+        };
+        Self::new(StrPredicate::Fn(pred))
+    }
+
     fn new(pred: StrPredicate) -> Self {
         Self { pred }
     }
@@ -231,6 +282,10 @@ mod errors {
             OutputMatches(got: String) {
                 description("Output was not as expected")
                 display("expected to not match\noutput=```{}```", got)
+            }
+            PredicateFailed(got: String, msg: String) {
+                description("Output predicate failed")
+                display("{}\noutput=```{}```", msg, got)
             }
             OutputMismatch(kind: super::OutputKind) {
                 description("Output was not as expected")

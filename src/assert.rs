@@ -475,6 +475,26 @@ impl OutputAssertionBuilder {
         self.assertion.expect_output.push(pred);
         self.assertion
     }
+
+    /// Expect the command output to satisfy the given predicate.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "-n", "42"])
+    ///     .stdout().satisfies(|x| x.len() == 2, "bad length")
+    ///     .unwrap();
+    /// ```
+    pub fn satisfies<F, M>(mut self, pred: F, msg: M) -> Assert
+        where F: 'static + Fn(&str) -> bool,
+              M: Into<String>
+    {
+        let pred = OutputPredicate::new(self.kind, Output::satisfies(pred, msg));
+        self.assertion.expect_output.push(pred);
+        self.assertion
+    }
 }
 
 #[cfg(test)]
