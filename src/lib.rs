@@ -129,11 +129,10 @@ mod errors;
 mod macros;
 pub use macros::flatten_escaped_string;
 
+mod assert;
+mod diff;
 mod output;
 
-mod diff;
-
-mod assert;
 pub use assert::Assert;
 pub use assert::OutputAssertionBuilder;
 /// Environment is a re-export of the Environment crate

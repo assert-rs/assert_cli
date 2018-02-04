@@ -3,7 +3,7 @@ extern crate regex;
 use environment::Environment;
 use error_chain::ChainedError;
 use errors::*;
-use output::{OutputAssertion, OutputKind, ExpectType};
+use output::{Content, Output, OutputKind, OutputPredicate};
 use std::default;
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
@@ -20,8 +20,8 @@ pub struct Assert {
     current_dir: Option<PathBuf>,
     expect_success: Option<bool>,
     expect_exit_code: Option<i32>,
-    expect_output: Vec<OutputAssertion>,
-    stdin_contents: Option<String>,
+    expect_output: Vec<OutputPredicate>,
+    stdin_contents: Option<Vec<u8>>,
 }
 
 impl default::Default for Assert {
@@ -120,8 +120,8 @@ impl Assert {
     ///     .stdout().contains("42")
     ///     .unwrap();
     /// ```
-    pub fn stdin(mut self, contents: &str) -> Self {
-        self.stdin_contents = Some(String::from(contents));
+    pub fn stdin<S: Into<Vec<u8>>>(mut self, contents: S) -> Self {
+        self.stdin_contents = Some(contents.into());
         self
     }
 
@@ -291,7 +291,6 @@ impl Assert {
         OutputAssertionBuilder {
             assertion: self,
             kind: OutputKind::StdOut,
-            expected_result: true,
         }
     }
 
@@ -312,7 +311,6 @@ impl Assert {
         OutputAssertionBuilder {
             assertion: self,
             kind: OutputKind::StdErr,
-            expected_result: true,
         }
     }
 
@@ -329,10 +327,10 @@ impl Assert {
     /// assert!(test.is_ok());
     /// ```
     pub fn execute(self) -> Result<()> {
-        let cmd = &self.cmd[0];
+        let bin = &self.cmd[0];
 
         let args: Vec<_> = self.cmd.iter().skip(1).collect();
-        let mut command = Command::new(cmd);
+        let mut command = Command::new(bin);
         let command = command
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
@@ -355,7 +353,7 @@ impl Assert {
                 .stdin
                 .as_mut()
                 .expect("Couldn't get mut ref to command stdin")
-                .write_all(contents.as_bytes())?;
+                .write_all(contents)?;
         }
         let output = spawned.wait_with_output()?;
 
@@ -363,30 +361,26 @@ impl Assert {
             if expect_success != output.status.success() {
                 let out = String::from_utf8_lossy(&output.stdout).to_string();
                 let err = String::from_utf8_lossy(&output.stderr).to_string();
-                bail!(ErrorKind::StatusMismatch(
-                    self.cmd.clone(),
-                    expect_success,
-                    out,
-                    err,
-                ));
+                let err: Error = ErrorKind::StatusMismatch(expect_success, out, err).into();
+                bail!(err.chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone())));
             }
         }
 
         if self.expect_exit_code.is_some() && self.expect_exit_code != output.status.code() {
             let out = String::from_utf8_lossy(&output.stdout).to_string();
             let err = String::from_utf8_lossy(&output.stderr).to_string();
-            bail!(ErrorKind::ExitCodeMismatch(
-                self.cmd.clone(),
-                self.expect_exit_code,
-                output.status.code(),
-                out,
-                err,
-            ));
+            let err: Error =
+                ErrorKind::ExitCodeMismatch(self.expect_exit_code, output.status.code(), out, err)
+                    .into();
+            bail!(err.chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone())));
         }
 
         self.expect_output
             .iter()
-            .map(|a| a.execute(&output, &self.cmd))
+            .map(|a| {
+                a.verify(&output)
+                    .chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone()))
+            })
             .collect::<Result<Vec<()>>>()?;
 
         Ok(())
@@ -416,28 +410,9 @@ impl Assert {
 pub struct OutputAssertionBuilder {
     assertion: Assert,
     kind: OutputKind,
-    expected_result: bool,
 }
 
 impl OutputAssertionBuilder {
-    /// Negate the assertion predicate
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// extern crate assert_cli;
-    ///
-    /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .stdout().not().contains("73")
-    ///     .unwrap();
-    /// ```
-    // No clippy, we don't want to implement std::ops::Not :)
-    #[cfg_attr(feature = "cargo-clippy", allow(should_implement_trait))]
-    pub fn not(mut self) -> Self {
-        self.expected_result = !self.expected_result;
-        self
-    }
-
     /// Expect the command's output to **contain** `output`.
     ///
     /// # Examples
@@ -449,13 +424,9 @@ impl OutputAssertionBuilder {
     ///     .stdout().contains("42")
     ///     .unwrap();
     /// ```
-    pub fn contains<O: Into<String>>(mut self, output: O) -> Assert {
-        self.assertion.expect_output.push(OutputAssertion {
-            expect: ExpectType::STRING(output.into()),
-            fuzzy: true,
-            expected_result: self.expected_result,
-            kind: self.kind,
-        });
+    pub fn contains<O: Into<Content>>(mut self, output: O) -> Assert {
+        let pred = OutputPredicate::new(self.kind, Output::contains(output));
+        self.assertion.expect_output.push(pred);
         self.assertion
     }
 
@@ -470,57 +441,9 @@ impl OutputAssertionBuilder {
     ///     .stdout().is("42")
     ///     .unwrap();
     /// ```
-    pub fn is<O: Into<String>>(mut self, output: O) -> Assert {
-        self.assertion.expect_output.push(OutputAssertion {
-            expect: ExpectType::STRING(output.into()),
-            fuzzy: false,
-            expected_result: self.expected_result,
-            kind: self.kind,
-        });
-        self.assertion
-    }
-
-    /// Expect the command to match **however many times** this `output`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// extern crate assert_cli;
-    /// extern crate regex;
-    /// let re = regex::Regex::new("[0-9]{2}").unwrap();
-    /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .stdout().matches(re)
-    ///     .unwrap();
-    /// ```
-    pub fn matches(mut self, output: regex::Regex) -> Assert {
-        self.assertion.expect_output.push(OutputAssertion {
-            expect: ExpectType::REGEX(output, 0),
-            fuzzy: true,
-            expected_result: self.expected_result,
-            kind: self.kind,
-        });
-        self.assertion
-    }
-
-    /// Expect the command to match `nmatches` times this `output`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// extern crate assert_cli;
-    /// extern crate regex;
-    /// let re = regex::Regex::new("[0-9]{1}").unwrap();
-    /// assert_cli::Assert::command(&["echo", "42"])
-    ///     .stdout().matches_ntimes(re, 2)
-    ///     .unwrap();
-    /// ```
-    pub fn matches_ntimes(mut self, output: regex::Regex, nmatches: u32) -> Assert {
-        self.assertion.expect_output.push(OutputAssertion {
-            expect: ExpectType::REGEX(output, nmatches),
-            fuzzy: false,
-            expected_result: self.expected_result,
-            kind: self.kind,
-        });
+    pub fn is<O: Into<Content>>(mut self, output: O) -> Assert {
+        let pred = OutputPredicate::new(self.kind, Output::is(output));
+        self.assertion.expect_output.push(pred);
         self.assertion
     }
 
@@ -535,8 +458,10 @@ impl OutputAssertionBuilder {
     ///     .stdout().doesnt_contain("73")
     ///     .unwrap();
     /// ```
-    pub fn doesnt_contain<O: Into<String>>(self, output: O) -> Assert {
-        self.not().contains(output)
+    pub fn doesnt_contain<O: Into<Content>>(mut self, output: O) -> Assert {
+        let pred = OutputPredicate::new(self.kind, Output::doesnt_contain(output));
+        self.assertion.expect_output.push(pred);
+        self.assertion
     }
 
     /// Expect the command to output to not be **exactly** this `output`.
@@ -550,8 +475,31 @@ impl OutputAssertionBuilder {
     ///     .stdout().isnt("73")
     ///     .unwrap();
     /// ```
-    pub fn isnt<O: Into<String>>(self, output: O) -> Assert {
-        self.not().is(output)
+    pub fn isnt<O: Into<Content>>(mut self, output: O) -> Assert {
+        let pred = OutputPredicate::new(self.kind, Output::isnt(output));
+        self.assertion.expect_output.push(pred);
+        self.assertion
+    }
+
+    /// Expect the command output to satisfy the given predicate.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "-n", "42"])
+    ///     .stdout().satisfies(|x| x.len() == 2, "bad length")
+    ///     .unwrap();
+    /// ```
+    pub fn satisfies<F, M>(mut self, pred: F, msg: M) -> Assert
+    where
+        F: 'static + Fn(&str) -> bool,
+        M: Into<String>,
+    {
+        let pred = OutputPredicate::new(self.kind, Output::satisfies(pred, msg));
+        self.assertion.expect_output.push(pred);
+        self.assertion
     }
 }
 
@@ -568,7 +516,11 @@ mod test {
     fn take_ownership() {
         let x = Environment::inherit();
 
-        command().with_env(x.clone()).with_env(&x).with_env(x);
+        command()
+            .with_env(x.clone())
+            .with_env(&x)
+            .with_env(x)
+            .unwrap();
     }
 
     #[test]
@@ -610,8 +562,7 @@ mod test {
         command()
             .with_env(y)
             .stdout()
-            .not()
-            .contains("key=value")
+            .doesnt_contain("key=value")
             .execute()
             .unwrap();
     }

@@ -4,97 +4,309 @@ use self::errors::*;
 pub use self::errors::{Error, ErrorKind};
 use diff;
 use difference::Changeset;
-use std::ffi::OsString;
-use std::process::Output;
+use std::fmt;
+use std::process;
+use std::rc;
 
-#[derive(Debug, Clone)]
-pub enum ExpectType {
-    STRING(String),
-    REGEX(regex::Regex, u32),
-    //perdicate?
+
+#[derive(Clone, PartialEq, Eq)]
+pub enum Content {
+    Str(String),
+    Bytes(Vec<u8>),
 }
 
-#[derive(Debug, Clone)]
-pub struct OutputAssertion {
-    pub expect: ExpectType,
-    pub fuzzy: bool,
+impl fmt::Debug for Content {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Content::Str(ref data) => write!(f, "{}", data),
+            Content::Bytes(ref data) => write!(f, "{:?}", data),
+        }
+    }
+}
+
+impl<'a> From<&'a str> for Content {
+    fn from(data: &'a str) -> Self {
+        Content::Str(data.into())
+    }
+}
+
+impl<'a> From<&'a [u8]> for Content {
+    fn from(data: &'a [u8]) -> Self {
+        Content::Bytes(data.into())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct IsPredicate {
+    pub expect: Content,
     pub expected_result: bool,
-    pub kind: OutputKind,
 }
 
-impl OutputAssertion {
-    fn matches_fuzzy(&self, got: &str) -> Result<()> {
+impl IsPredicate {
+    pub fn verify(&self, got: &[u8]) -> Result<()> {
         match self.expect {
-            ExpectType::STRING(ref self_str) => {
-                let result = got.contains(self_str);
-                if result != self.expected_result {
-                    if self.expected_result {
-                        bail!(ErrorKind::OutputDoesntContain(self_str.clone(), got.into()));
-                    } else {
-                        bail!(ErrorKind::OutputContains(self_str.clone(), got.into()));
-                    }
-                }
+            Content::Str(ref expect) => {
+                self.verify_str(expect, String::from_utf8_lossy(got).as_ref())
             }
-            ExpectType::REGEX(ref self_regex, _) => {
-                let result = self_regex.is_match(got);
-                if result != self.expected_result {
-                    bail!(ErrorKind::OutputDoesntMatchRegex(
-                        String::from(self_regex.as_str()),
-                        got.into(),
-                    ));
-                }
+            Content::Bytes(ref expect) => self.verify_bytes(expect, got),
+        }
+    }
+
+    fn verify_bytes(&self, expect: &[u8], got: &[u8]) -> Result<()> {
+        let result = expect == got;
+
+        if result != self.expected_result {
+            if self.expected_result {
+                bail!(ErrorKind::BytesDoesntMatch(
+                    expect.to_owned(),
+                    got.to_owned(),
+                ));
+            } else {
+                bail!(ErrorKind::BytesMatches(got.to_owned()));
             }
         }
         Ok(())
     }
 
-    fn matches_exact(&self, got: &str) -> Result<()> {
-        match self.expect {
-            ExpectType::STRING(ref self_str) => {
-                let differences = Changeset::new(self_str.trim(), got.trim(), "\n");
-                let result = differences.distance == 0;
+    fn verify_str(&self, expect: &str, got: &str) -> Result<()> {
+        let differences = Changeset::new(expect.trim(), got.trim(), "\n");
+        let result = differences.distance == 0;
 
-                if result != self.expected_result {
-                    if self.expected_result {
-                        let nice_diff = diff::render(&differences)?;
-                        bail!(ErrorKind::OutputDoesntMatch(
-                            self_str.clone(),
-                            got.to_owned(),
-                            nice_diff,
-                        ));
-                    } else {
-                        bail!(ErrorKind::OutputMatches(got.to_owned()));
-                    }
-                }
-            }
-            ExpectType::REGEX(ref self_regex, nmatches) => {
-                let regex_matches = self_regex.captures_iter(got).count();
-                if regex_matches != (nmatches as usize) {
-                    bail!(ErrorKind::OutputDoesntMatchRegexExactTimes(
-                        String::from(self_regex.as_str()),
-                        got.into(),
-                        nmatches,
-                        regex_matches,
-                    ));
-                }
+        if result != self.expected_result {
+            if self.expected_result {
+                let nice_diff = diff::render(&differences)?;
+                bail!(ErrorKind::StrDoesntMatch(
+                    expect.to_owned(),
+                    got.to_owned(),
+                    nice_diff
+                ));
+            } else {
+                bail!(ErrorKind::StrMatches(got.to_owned()));
             }
         }
         Ok(())
     }
+}
 
-    pub fn execute(&self, output: &Output, cmd: &[OsString]) -> super::errors::Result<()> {
-        let observed = String::from_utf8_lossy(self.kind.select(output));
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct ContainsPredicate {
+    pub expect: Content,
+    pub expected_result: bool,
+}
 
-        let result = if self.fuzzy {
-            self.matches_fuzzy(&observed)
-        } else {
-            self.matches_exact(&observed)
+fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
+}
+
+#[test]
+fn test_find_subsequence() {
+    assert_eq!(find_subsequence(b"qwertyuiop", b"tyu"), Some(4));
+    assert_eq!(find_subsequence(b"qwertyuiop", b"asd"), None);
+}
+
+impl ContainsPredicate {
+    pub fn verify(&self, got: &[u8]) -> Result<()> {
+        match self.expect {
+            Content::Str(ref expect) => {
+                self.verify_str(expect, String::from_utf8_lossy(got).as_ref())
+            }
+            Content::Bytes(ref expect) => self.verify_bytes(expect, got),
+        }
+    }
+
+    pub fn verify_bytes(&self, expect: &[u8], got: &[u8]) -> Result<()> {
+        let result = find_subsequence(got, expect).is_some();
+        if result != self.expected_result {
+            if self.expected_result {
+                bail!(ErrorKind::BytesDoesntContain(
+                    expect.to_owned(),
+                    got.to_owned()
+                ));
+            } else {
+                bail!(ErrorKind::BytesContains(expect.to_owned(), got.to_owned()));
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn verify_str(&self, expect: &str, got: &str) -> Result<()> {
+        let result = got.contains(expect);
+        if result != self.expected_result {
+            if self.expected_result {
+                bail!(ErrorKind::StrDoesntContain(
+                    expect.to_owned(),
+                    got.to_owned()
+                ));
+            } else {
+                bail!(ErrorKind::StrContains(expect.to_owned(), got.to_owned()));
+            }
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Clone)]
+struct FnPredicate {
+    pub pred: rc::Rc<Fn(&str) -> bool>,
+    pub msg: String,
+}
+
+impl FnPredicate {
+    pub fn verify(&self, got: &[u8]) -> Result<()> {
+        let got = String::from_utf8_lossy(got);
+        let pred = &self.pred;
+        if !pred(&got) {
+            let err: Error = ErrorKind::PredicateFailed(got.into_owned(), self.msg.clone()).into();
+            bail!(err);
+        }
+
+        Ok(())
+    }
+}
+
+impl fmt::Debug for FnPredicate {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.msg)
+    }
+}
+
+#[derive(Debug, Clone)]
+enum ContentPredicate {
+    Is(IsPredicate),
+    Contains(ContainsPredicate),
+    Fn(FnPredicate),
+}
+
+impl ContentPredicate {
+    pub fn verify(&self, got: &[u8]) -> Result<()> {
+        match *self {
+            ContentPredicate::Is(ref pred) => pred.verify(got),
+            ContentPredicate::Contains(ref pred) => pred.verify(got),
+            ContentPredicate::Fn(ref pred) => pred.verify(got),
+        }
+    }
+}
+
+/// Assertions for command output.
+#[derive(Debug, Clone)]
+pub struct Output {
+    pred: ContentPredicate,
+}
+
+impl Output {
+    /// Expect the command's output to **contain** `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo"])
+    ///     .with_args(&["42"])
+    ///     .stdout().contains("42")
+    ///     .unwrap();
+    /// ```
+    pub fn contains<O: Into<Content>>(output: O) -> Self {
+        let pred = ContainsPredicate {
+            expect: output.into(),
+            expected_result: true,
         };
-        result.map_err(|e| {
-            super::errors::ErrorKind::OutputMismatch(cmd.to_vec(), e, self.kind)
-        })?;
+        Self::new(ContentPredicate::Contains(pred))
+    }
 
-        Ok(())
+    /// Expect the command to output **exactly** this `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo"])
+    ///     .with_args(&["42"])
+    ///     .stdout().is("42")
+    ///     .unwrap();
+    /// ```
+    pub fn is<O: Into<Content>>(output: O) -> Self {
+        let pred = IsPredicate {
+            expect: output.into(),
+            expected_result: true,
+        };
+        Self::new(ContentPredicate::Is(pred))
+    }
+
+    /// Expect the command's output to not **contain** `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo"])
+    ///     .with_args(&["42"])
+    ///     .stdout().doesnt_contain("73")
+    ///     .unwrap();
+    /// ```
+    pub fn doesnt_contain<O: Into<Content>>(output: O) -> Self {
+        let pred = ContainsPredicate {
+            expect: output.into(),
+            expected_result: false,
+        };
+        Self::new(ContentPredicate::Contains(pred))
+    }
+
+    /// Expect the command to output to not be **exactly** this `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo"])
+    ///     .with_args(&["42"])
+    ///     .stdout().isnt("73")
+    ///     .unwrap();
+    /// ```
+    pub fn isnt<O: Into<Content>>(output: O) -> Self {
+        let pred = IsPredicate {
+            expect: output.into(),
+            expected_result: false,
+        };
+        Self::new(ContentPredicate::Is(pred))
+    }
+
+    /// Expect the command output to satisfy the given predicate.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo", "-n", "42"])
+    ///     .stdout().satisfies(|x| x.len() == 2, "bad length")
+    ///     .unwrap();
+    /// ```
+    pub fn satisfies<F, M>(pred: F, msg: M) -> Self
+    where
+        F: 'static + Fn(&str) -> bool,
+        M: Into<String>,
+    {
+        let pred = FnPredicate {
+            pred: rc::Rc::new(pred),
+            msg: msg.into(),
+        };
+        Self::new(ContentPredicate::Fn(pred))
+    }
+
+    fn new(pred: ContentPredicate) -> Self {
+        Self { pred }
+    }
+
+    pub(crate) fn verify(&self, got: &[u8]) -> Result<()> {
+        self.pred.verify(got)
     }
 }
 
@@ -105,11 +317,30 @@ pub enum OutputKind {
 }
 
 impl OutputKind {
-    pub fn select(self, o: &Output) -> &[u8] {
+    pub fn select(self, o: &process::Output) -> &[u8] {
         match self {
             OutputKind::StdOut => &o.stdout,
             OutputKind::StdErr => &o.stderr,
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct OutputPredicate {
+    kind: OutputKind,
+    pred: Output,
+}
+
+impl OutputPredicate {
+    pub fn new(kind: OutputKind, pred: Output) -> Self {
+        Self { kind, pred }
+    }
+
+    pub(crate) fn verify(&self, got: &process::Output) -> Result<()> {
+        let got = self.kind.select(got);
+        self.pred
+            .verify(got)
+            .chain_err(|| ErrorKind::OutputMismatch(self.kind))
     }
 }
 
@@ -119,29 +350,48 @@ mod errors {
             Fmt(::std::fmt::Error);
         }
         errors {
-            OutputDoesntContain(expected: String, got: String) {
+            StrDoesntContain(expected: String, got: String) {
                 description("Output was not as expected")
                 display("expected to contain {:?}\noutput=```{}```", expected, got)
             }
-            OutputContains(expected: String, got: String) {
+            BytesDoesntContain(expected: Vec<u8>, got: Vec<u8>) {
+                description("Output was not as expected")
+                display("expected to contain {:?}\noutput=```{:?}```", expected, got)
+            }
+            StrContains(expected: String, got: String) {
                 description("Output was not as expected")
                 display("expected to not contain {:?}\noutput=```{}```", expected, got)
             }
-            OutputDoesntMatch(expected: String, got: String, diff: String) {
+            BytesContains(expected: Vec<u8>, got: Vec<u8>) {
+                description("Output was not as expected")
+                display("expected to not contain {:?}\noutput=```{:?}```", expected, got)
+            }
+            StrDoesntMatch(expected: String, got: String, diff: String) {
                 description("Output was not as expected")
                 display("diff:\n{}", diff)
             }
-            OutputMatches(got: String) {
+            BytesDoesntMatch(expected: Vec<u8>, got: Vec<u8>) {
+                description("Output was not as expected")
+                display("expected=```{:?}```\noutput=```{:?}```", expected, got)
+            }
+            StrMatches(got: String) {
                 description("Output was not as expected")
                 display("expected to not match\noutput=```{}```", got)
             }
-            OutputDoesntMatchRegex(regex: String, got: String) {
-                description("Regex did not match")
-                display("expected {} to match\noutput=```{}```", regex, got)
+            BytesMatches(got: Vec<u8>) {
+                description("Output was not as expected")
+                display("expected to not match\noutput=```{:?}```", got)
             }
-            OutputDoesntMatchRegexExactTimes(regex: String, got: String, expected_times: u32, got_times: usize) {
-                description("Regex did not match exact number of times")
-                display("expected {} to match {} {} times\noutput=```{}```", regex, got, expected_times, got_times)
+            PredicateFailed(got: String, msg: String) {
+                description("Output predicate failed")
+                display("{}\noutput=```{}```", msg, got)
+            }
+            OutputMismatch(kind: super::OutputKind) {
+                description("Output was not as expected")
+                display(
+                    "Unexpected {:?}",
+                    kind
+                )
             }
         }
     }
