@@ -1,15 +1,13 @@
+use environment::Environment;
+use error_chain::ChainedError;
+use errors::*;
+use output::{Content, Output, OutputKind, OutputPredicate};
 use std::default;
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::vec::Vec;
-
-use environment::Environment;
-use error_chain::ChainedError;
-
-use errors::*;
-use output::{Content, Output, OutputKind, OutputPredicate};
 
 /// Assertions for a specific command.
 #[derive(Debug)]
@@ -377,7 +375,10 @@ impl Assert {
 
         self.expect_output
             .iter()
-            .map(|a| a.verify(&output).chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone())))
+            .map(|a| {
+                a.verify(&output)
+                    .chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone()))
+            })
             .collect::<Result<Vec<()>>>()?;
 
         Ok(())
@@ -490,8 +491,9 @@ impl OutputAssertionBuilder {
     ///     .unwrap();
     /// ```
     pub fn satisfies<F, M>(mut self, pred: F, msg: M) -> Assert
-        where F: 'static + Fn(&str) -> bool,
-              M: Into<String>
+    where
+        F: 'static + Fn(&str) -> bool,
+        M: Into<String>,
     {
         let pred = OutputPredicate::new(self.kind, Output::satisfies(pred, msg));
         self.assertion.expect_output.push(pred);
@@ -512,7 +514,11 @@ mod test {
     fn take_ownership() {
         let x = Environment::inherit();
 
-        command().with_env(x.clone()).with_env(&x).with_env(x).unwrap();
+        command()
+            .with_env(x.clone())
+            .with_env(&x)
+            .with_env(x)
+            .unwrap();
     }
 
     #[test]

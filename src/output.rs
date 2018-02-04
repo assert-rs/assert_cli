@@ -1,12 +1,10 @@
+use self::errors::*;
+pub use self::errors::{Error, ErrorKind};
+use diff;
+use difference::Changeset;
 use std::fmt;
 use std::process;
 use std::rc;
-
-use difference::Changeset;
-
-use diff;
-use self::errors::*;
-pub use self::errors::{Error, ErrorKind};
 
 
 #[derive(Clone, PartialEq, Eq)]
@@ -24,15 +22,13 @@ impl fmt::Debug for Content {
     }
 }
 
-impl<'a> From<&'a str> for Content
-{
+impl<'a> From<&'a str> for Content {
     fn from(data: &'a str) -> Self {
         Content::Str(data.into())
     }
 }
 
-impl<'a> From<&'a [u8]> for Content
-{
+impl<'a> From<&'a [u8]> for Content {
     fn from(data: &'a [u8]) -> Self {
         Content::Bytes(data.into())
     }
@@ -47,7 +43,9 @@ struct IsPredicate {
 impl IsPredicate {
     pub fn verify(&self, got: &[u8]) -> Result<()> {
         match self.expect {
-            Content::Str(ref expect) => self.verify_str(expect, String::from_utf8_lossy(got).as_ref()),
+            Content::Str(ref expect) => {
+                self.verify_str(expect, String::from_utf8_lossy(got).as_ref())
+            }
             Content::Bytes(ref expect) => self.verify_bytes(expect, got),
         }
     }
@@ -97,7 +95,9 @@ struct ContainsPredicate {
 }
 
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).position(|window| window == needle)
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
 }
 
 #[test]
@@ -109,7 +109,9 @@ fn test_find_subsequence() {
 impl ContainsPredicate {
     pub fn verify(&self, got: &[u8]) -> Result<()> {
         match self.expect {
-            Content::Str(ref expect) => self.verify_str(expect, String::from_utf8_lossy(got).as_ref()),
+            Content::Str(ref expect) => {
+                self.verify_str(expect, String::from_utf8_lossy(got).as_ref())
+            }
             Content::Bytes(ref expect) => self.verify_bytes(expect, got),
         }
     }
@@ -157,8 +159,9 @@ impl FnPredicate {
     pub fn verify(&self, got: &[u8]) -> Result<()> {
         let got = String::from_utf8_lossy(got);
         let pred = &self.pred;
-        if ! pred(&got) {
-            bail!(ErrorKind::PredicateFailed(got.into_owned(), self.msg.clone()));
+        if !pred(&got) {
+            let err: Error = ErrorKind::PredicateFailed(got.into_owned(), self.msg.clone()).into();
+            bail!(err);
         }
 
         Ok(())
@@ -175,7 +178,7 @@ impl fmt::Debug for FnPredicate {
 enum ContentPredicate {
     Is(IsPredicate),
     Contains(ContainsPredicate),
-	Fn(FnPredicate),
+    Fn(FnPredicate),
 }
 
 impl ContentPredicate {
@@ -287,8 +290,9 @@ impl Output {
     ///     .unwrap();
     /// ```
     pub fn satisfies<F, M>(pred: F, msg: M) -> Self
-        where F: 'static + Fn(&str) -> bool,
-              M: Into<String>
+    where
+        F: 'static + Fn(&str) -> bool,
+        M: Into<String>,
     {
         let pred = FnPredicate {
             pred: rc::Rc::new(pred),
@@ -329,10 +333,7 @@ pub struct OutputPredicate {
 
 impl OutputPredicate {
     pub fn new(kind: OutputKind, pred: Output) -> Self {
-        Self {
-            kind,
-            pred,
-        }
+        Self { kind, pred }
     }
 
     pub(crate) fn verify(&self, got: &process::Output) -> Result<()> {
