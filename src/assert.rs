@@ -362,7 +362,9 @@ impl Assert {
                 let out = String::from_utf8_lossy(&output.stdout).to_string();
                 let err = String::from_utf8_lossy(&output.stderr).to_string();
                 let err: Error = ErrorKind::StatusMismatch(expect_success, out, err).into();
-                bail!(err.chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone())));
+                bail!(err.chain_err(
+                    || ErrorKind::AssertionFailed(self.cmd.clone()),
+                ));
             }
         }
 
@@ -372,14 +374,17 @@ impl Assert {
             let err: Error =
                 ErrorKind::ExitCodeMismatch(self.expect_exit_code, output.status.code(), out, err)
                     .into();
-            bail!(err.chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone())));
+            bail!(err.chain_err(
+                || ErrorKind::AssertionFailed(self.cmd.clone()),
+            ));
         }
 
         self.expect_output
             .iter()
             .map(|a| {
-                a.verify(&output)
-                    .chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone()))
+                a.verify(&output).chain_err(|| {
+                    ErrorKind::AssertionFailed(self.cmd.clone())
+                })
             })
             .collect::<Result<Vec<()>>>()?;
 
@@ -443,6 +448,38 @@ impl OutputAssertionBuilder {
     /// ```
     pub fn is<O: Into<Content>>(mut self, output: O) -> Assert {
         let pred = OutputPredicate::new(self.kind, Output::is(output));
+        self.assertion.expect_output.push(pred);
+        self.assertion
+    }
+
+    /// Expect the command to match **however many times** this `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .stdout().matches("[0-9]{2}")
+    ///     .unwrap();
+    /// ```
+    pub fn matches(mut self, output: String) -> Assert {
+        let pred = OutputPredicate::new(self.kind, Output::matches(output));
+        self.assertion.expect_output.push(pred);
+        self.assertion
+    }
+
+    /// Expect the command to match `nmatches` times this `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    /// assert_cli::Assert::command(&["echo", "42"])
+    ///     .stdout().matches_ntimes("[0-9]{1}", 2)
+    ///     .unwrap();
+    /// ```
+    pub fn matches_ntimes(mut self, output: String, nmatches: u32) -> Assert {
+        let pred = OutputPredicate::new(self.kind, Output::matches_ntimes(output, nmatches));
         self.assertion.expect_output.push(pred);
         self.assertion
     }
