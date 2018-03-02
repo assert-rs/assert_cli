@@ -4,8 +4,8 @@ version = "0.5.4"
 description = "Test CLI Applications."
 authors = ["Pascal Hertleif <killercup@gmail.com>", "Ed Page <eopage@byu.net>"]
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/killercup/assert_cli.git"
-homepage = "https://github.com/killercup/assert_cli"
+repository = "https://github.com/assert-rs/assert_cli.git"
+homepage = "https://github.com/assert-rs/assert_cli"
 documentation = "http://docs.rs/assert_cli/"
 readme = "README.md"
 categories = ["development-tools::testing"]
@@ -29,4 +29,4 @@ skeptic = "0.13"
 skeptic = "0.13"
 
 [badges]
-travis-ci = { repository = "killercup/assert_cli" }
+travis-ci = { repository = "assert-rs/assert_cli" }

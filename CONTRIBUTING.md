@@ -28,5 +28,5 @@ When we're ready to release, a project owner should do the following
   - Identify what fixes, features, and breaking changes are in the release.
 - Run `cargo publish` (run `cargo login` first if needed)
 
-[Issues]: https://github.com/killercup/assert_cli/issues
-[TODO]: https://github.com/killercup/assert_cli/search?q=TODO
+[Issues]: https://github.com/assert-rs/assert_cli/issues
+[TODO]: https://github.com/assert-rs/assert_cli/search?q=TODO
