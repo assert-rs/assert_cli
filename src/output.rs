@@ -1,3 +1,5 @@
+extern crate regex;
+
 use self::errors::*;
 pub use self::errors::{Error, ErrorKind};
 use diff;
@@ -63,7 +65,6 @@ impl IsPredicate {
                 bail!(ErrorKind::BytesMatches(got.to_owned()));
             }
         }
-
         Ok(())
     }
 
@@ -83,7 +84,6 @@ impl IsPredicate {
                 bail!(ErrorKind::StrMatches(got.to_owned()));
             }
         }
-
         Ok(())
     }
 }
@@ -175,10 +175,46 @@ impl fmt::Debug for FnPredicate {
 }
 
 #[derive(Debug, Clone)]
+struct RegexPredicate {
+    regex: regex::Regex,
+    times: u32,
+}
+
+impl RegexPredicate {
+    fn verify(&self, got: &[u8]) -> Result<()> {
+        let conversion = String::from_utf8_lossy(got);
+        let got = conversion.as_ref();
+        if self.times == 0 {
+            let result = self.regex.is_match(got);
+            if !result {
+                bail!(ErrorKind::OutputDoesntMatchRegexExactTimes(
+                        String::from(self.regex.as_str()),
+                        got.into(),
+                        1,
+                        1
+                    ));
+            }
+        } else {
+            let regex_matches = self.regex.captures_iter(got).count();
+            if regex_matches != (self.times as usize) {
+                bail!(ErrorKind::OutputDoesntMatchRegexExactTimes(
+                        String::from(self.regex.as_str()),
+                        got.into(),
+                        self.times,
+                        regex_matches,
+                    ));
+            }
+        }
+        Ok(())
+    }
+}
+
+#[derive(Debug, Clone)]
 enum ContentPredicate {
     Is(IsPredicate),
     Contains(ContainsPredicate),
     Fn(FnPredicate),
+    Regex(RegexPredicate),
 }
 
 impl ContentPredicate {
@@ -187,6 +223,7 @@ impl ContentPredicate {
             ContentPredicate::Is(ref pred) => pred.verify(got),
             ContentPredicate::Contains(ref pred) => pred.verify(got),
             ContentPredicate::Fn(ref pred) => pred.verify(got),
+            ContentPredicate::Regex(ref pred) => pred.verify(got),
         }
     }
 }
@@ -236,6 +273,46 @@ impl Output {
             expected_result: true,
         };
         Self::new(ContentPredicate::Is(pred))
+    }
+
+    /// Expect the command to **match** this `output`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo"])
+    ///     .with_args(&["42"])
+    ///     .stdout().matches("[0-9]{2}")
+    ///     .unwrap();
+    /// ```
+    pub fn matches(output: String) -> Self {
+        let pred = RegexPredicate {
+            regex: regex::Regex::new(&output).unwrap(),
+            times: 0,
+        };
+        Self::new(ContentPredicate::Regex(pred))
+    }
+
+    /// Expect the command to **match** this `output` exacly `nmatches` times.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["echo"])
+    ///     .with_args(&["42"])
+    ///     .stdout().matches_ntimes("[0-9]{1}", 2)
+    ///     .unwrap();
+    /// ```
+    pub fn matches_ntimes(output: String, nmatches: u32) -> Self {
+        let pred = RegexPredicate {
+            regex: regex::Regex::new(&output).unwrap(),
+            times: nmatches,
+        };
+        Self::new(ContentPredicate::Regex(pred))
     }
 
     /// Expect the command's output to not **contain** `output`.
@@ -385,6 +462,16 @@ mod errors {
             PredicateFailed(got: String, msg: String) {
                 description("Output predicate failed")
                 display("{}\noutput=```{}```", msg, got)
+            }
+/* Adding a single error more makes this break, using the bottom one temporarily
+            OutputDoesntMatchRegex(regex: String, got: String) {
+                description("Expected to regex to match")
+                display("expected {}\n to match output=```{}```", regex, got)
+            }
+*/
+            OutputDoesntMatchRegexExactTimes(regex: String, got: String, expected_times: u32, got_times: usize) {
+                description("Expected to regex to match exact number of times")
+                display("expected {}\n to match output=```{}``` {} times instead of {} times", regex, got, expected_times, got_times)
             }
             OutputMismatch(kind: super::OutputKind) {
                 description("Output was not as expected")
