@@ -6,7 +6,6 @@ use std::fmt;
 use std::process;
 use std::rc;
 
-
 #[derive(Clone, PartialEq, Eq)]
 pub enum Content {
     Str(String),
