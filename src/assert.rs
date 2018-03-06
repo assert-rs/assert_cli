@@ -1,13 +1,16 @@
-use environment::Environment;
-use error_chain::ChainedError;
-use errors::*;
-use output::{Content, Output, OutputKind, OutputPredicate};
 use std::default;
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::vec::Vec;
+
+use environment::Environment;
+use failure;
+use failure::ResultExt;
+
+use errors::*;
+use output::{Content, Output, OutputKind, OutputPredicate};
 
 /// Assertions for a specific command.
 #[derive(Debug)]
@@ -342,9 +345,7 @@ impl Assert {
             None => command,
         };
 
-        let mut spawned = command
-            .spawn()
-            .chain_err(|| ErrorKind::SpawnFailed(self.cmd.clone()))?;
+        let mut spawned = command.spawn().context(AssertionKind::Spawn)?;
 
         if let Some(ref contents) = self.stdin_contents {
             spawned
@@ -359,25 +360,41 @@ impl Assert {
             if expect_success != output.status.success() {
                 let out = String::from_utf8_lossy(&output.stdout).to_string();
                 let err = String::from_utf8_lossy(&output.stderr).to_string();
-                let err: Error = ErrorKind::StatusMismatch(expect_success, out, err).into();
-                bail!(err.chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone())));
+                Err(AssertionError::new(AssertionKind::StatusMismatch))
+                    .context(if expect_success {
+                        "expected to succeed"
+                    } else {
+                        "expected to fail"
+                    })
+                    .context(KeyValueDisplay::new("stdout", QuotedDisplay::new(out)))
+                    .context(KeyValueDisplay::new("stderr", QuotedDisplay::new(err)))
+                    .with_context(|_| KeyValueDisplay::new("command", format!("{:?}", command)))?;
             }
         }
 
         if self.expect_exit_code.is_some() && self.expect_exit_code != output.status.code() {
             let out = String::from_utf8_lossy(&output.stdout).to_string();
             let err = String::from_utf8_lossy(&output.stderr).to_string();
-            let err: Error =
-                ErrorKind::ExitCodeMismatch(self.expect_exit_code, output.status.code(), out, err)
-                    .into();
-            bail!(err.chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone())));
+            Err(AssertionError::new(AssertionKind::ExitCodeMismatch))
+                .context(KeyValueDisplay::new(
+                    "expected",
+                    self.expect_exit_code.expect("is_some already called"),
+                ))
+                .context(KeyValueDisplay::new(
+                    "got",
+                    output.status.code().unwrap_or_default(),
+                ))
+                .context(KeyValueDisplay::new("stdout", QuotedDisplay::new(out)))
+                .context(KeyValueDisplay::new("stderr", QuotedDisplay::new(err)))
+                .with_context(|_| KeyValueDisplay::new("command", format!("{:?}", command)))?;
         }
 
         self.expect_output
             .iter()
             .map(|a| {
                 a.verify(&output)
-                    .chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone()))
+                    .with_context(|_| KeyValueDisplay::new("command", format!("{:?}", command)))
+                    .map_err(|e| failure::Error::from(e))
             })
             .collect::<Result<Vec<()>>>()?;
 
@@ -397,8 +414,16 @@ impl Assert {
     /// ```
     pub fn unwrap(self) {
         if let Err(err) = self.execute() {
-            panic!("{}", err.display_chain());
+            panic!(Self::format_causes(err.causes()));
         }
+    }
+
+    fn format_causes(mut causes: failure::Causes) -> String {
+        let mut result = causes.next().expect("an error should exist").to_string();
+        for cause in causes {
+            result.push_str(&format!("\nwith: {}", cause));
+        }
+        result
     }
 }
 

@@ -117,10 +117,12 @@
 
 #![deny(missing_docs)]
 
+extern crate colored;
 extern crate difference;
 extern crate environment;
+extern crate failure;
 #[macro_use]
-extern crate error_chain;
+extern crate failure_derive;
 extern crate serde_json;
 
 mod errors;

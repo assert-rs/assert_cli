@@ -1,67 +1,154 @@
-use output;
-use std::ffi::OsString;
+use std::fmt;
+use std::result;
 
-const ERROR_PREFIX: &'static str = "CLI assertion failed";
+use failure;
 
-fn format_cmd(cmd: &[OsString]) -> String {
-    let result: Vec<String> = cmd.iter()
-        .map(|s| s.to_string_lossy().into_owned())
-        .collect();
-    result.join(" ")
+pub type Result<T> = result::Result<T, failure::Error>;
+
+#[derive(Copy, Clone, Eq, PartialEq, Debug, Fail)]
+pub enum AssertionKind {
+    #[fail(display = "Spawn failed.")] Spawn,
+    #[fail(display = "Status mismatch.")] StatusMismatch,
+    #[fail(display = "Exit code mismatch.")] ExitCodeMismatch,
+    #[fail(display = "Output mismatch.")] OutputMismatch,
 }
 
-error_chain! {
-    links {
-        Output(output::Error, output::ErrorKind);
+#[derive(Debug)]
+pub struct AssertionError {
+    inner: failure::Context<AssertionKind>,
+}
+
+impl AssertionError {
+    pub fn new(kind: AssertionKind) -> Self {
+        Self { inner: kind.into() }
     }
-    foreign_links {
-        Io(::std::io::Error);
-        Fmt(::std::fmt::Error);
+
+    pub fn kind(&self) -> AssertionKind {
+        *self.inner.get_context()
     }
-    errors {
-        SpawnFailed(cmd: Vec<OsString>) {
-            description("Spawn failed")
-            display(
-                "{}: (command `{}` failed to run)",
-                ERROR_PREFIX,
-                format_cmd(cmd),
-            )
+}
+
+impl failure::Fail for AssertionError {
+    fn cause(&self) -> Option<&failure::Fail> {
+        self.inner.cause()
+    }
+
+    fn backtrace(&self) -> Option<&failure::Backtrace> {
+        self.inner.backtrace()
+    }
+}
+
+impl fmt::Display for AssertionError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "CLI Assertion Error: {}", self.inner)
+    }
+}
+
+impl From<AssertionKind> for AssertionError {
+    fn from(kind: AssertionKind) -> AssertionError {
+        AssertionError {
+            inner: failure::Context::new(kind),
         }
-        AssertionFailed(cmd: Vec<OsString>) {
-            description("Assertion failed")
-            display(
-                "{}: (command `{}` failed)",
-                ERROR_PREFIX,
-                format_cmd(cmd),
-            )
-        }
-        StatusMismatch(expected: bool, out: String, err: String) {
-            description("Wrong status")
-            display(
-                "Expected to {}\nstatus={}\nstdout=```{}```\nstderr=```{}```",
-                expected = if *expected { "succeed" } else { "fail" },
-                got = if *expected { "failed" } else { "succeeded" },
-                out = out,
-                err = err,
-            )
-        }
-        ExitCodeMismatch(
-            expected: Option<i32>,
-            got: Option<i32>,
-            out: String,
-            err: String
-        ) {
-            description("Wrong exit code")
-            display(
-                "Expected exit code to be `{expected:?}`)\n\
-                exit code=`{code:?}`\n\
-                stdout=```{stdout}```\n\
-                stderr=```{stderr}```",
-                expected=expected,
-                code=got,
-                stdout=out,
-                stderr=err,
-            )
-        }
+    }
+}
+
+impl From<failure::Context<AssertionKind>> for AssertionError {
+    fn from(inner: failure::Context<AssertionKind>) -> AssertionError {
+        AssertionError { inner: inner }
+    }
+}
+
+#[derive(Debug)]
+pub struct KeyValueDisplay<D>
+where
+    D: fmt::Display + Send + Sync + 'static,
+{
+    key: &'static str,
+    context: D,
+}
+
+impl<D> KeyValueDisplay<D>
+where
+    D: fmt::Display + Send + Sync + 'static,
+{
+    pub fn new(key: &'static str, context: D) -> Self {
+        Self { key, context }
+    }
+
+    pub fn key(&self) -> &str {
+        self.key
+    }
+
+    pub fn context(&self) -> &D {
+        &self.context
+    }
+}
+
+impl<D> fmt::Display for KeyValueDisplay<D>
+where
+    D: fmt::Display + Send + Sync + 'static,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}={}", self.key, self.context)
+    }
+}
+
+#[derive(Debug)]
+pub struct DebugDisplay<D>
+where
+    D: fmt::Debug + Send + Sync + 'static,
+{
+    context: D,
+}
+
+impl<D> DebugDisplay<D>
+where
+    D: fmt::Debug + Send + Sync + 'static,
+{
+    pub fn new(context: D) -> Self {
+        Self { context }
+    }
+
+    pub fn context(&self) -> &D {
+        &self.context
+    }
+}
+
+impl<D> fmt::Display for DebugDisplay<D>
+where
+    D: fmt::Debug + Send + Sync + 'static,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{:?}", self.context)
+    }
+}
+
+#[derive(Debug)]
+pub struct QuotedDisplay<D>
+where
+    D: fmt::Display + Send + Sync + 'static,
+{
+    context: D,
+}
+
+impl<D> QuotedDisplay<D>
+where
+    D: fmt::Display + Send + Sync + 'static,
+{
+    pub fn new(context: D) -> Self {
+        Self { context }
+    }
+
+    pub fn context(&self) -> &D {
+        &self.context
+    }
+}
+
+impl<D> fmt::Display for QuotedDisplay<D>
+where
+    D: fmt::Display + Send + Sync + 'static,
+{
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "```{}```", self.context)
     }
 }
