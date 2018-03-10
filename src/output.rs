@@ -56,23 +56,9 @@ impl IsPredicate {
 
         if result != self.expected_result {
             if self.expected_result {
-                Err(AssertionError::new(AssertionKind::OutputMismatch))
-                    .context("expected to match")
-                    .context(KeyValueDisplay::new(
-                        "expect",
-                        DebugDisplay::new(expect.to_owned()),
-                    ))
-                    .context(KeyValueDisplay::new(
-                        "got",
-                        DebugDisplay::new(got.to_owned()),
-                    ))?;
+                bail!(BytesDoesntMatch::new(expect.to_owned(), got.to_owned()));
             } else {
-                Err(AssertionError::new(AssertionKind::OutputMismatch))
-                    .context("expected to not match")
-                    .context(KeyValueDisplay::new(
-                        "got",
-                        DebugDisplay::new(got.to_owned()),
-                    ))?;
+                bail!(BytesMatches::new(got.to_owned()));
             }
         }
 
@@ -86,24 +72,13 @@ impl IsPredicate {
         if result != self.expected_result {
             if self.expected_result {
                 let nice_diff = diff::render(&differences)?;
-                Err(AssertionError::new(AssertionKind::OutputMismatch))
-                    .context("expected to match")
-                    .context(KeyValueDisplay::new(
-                        "expect",
-                        QuotedDisplay::new(expect.to_owned()),
-                    ))
-                    .context(KeyValueDisplay::new(
-                        "got",
-                        QuotedDisplay::new(got.to_owned()),
-                    ))
-                    .context(KeyValueDisplay::new("diff", nice_diff))?;
+                bail!(StrDoesntMatch::new(
+                    expect.to_owned(),
+                    got.to_owned(),
+                    nice_diff
+                ));
             } else {
-                Err(AssertionError::new(AssertionKind::OutputMismatch))
-                    .context("expected to not match")
-                    .context(KeyValueDisplay::new(
-                        "got",
-                        QuotedDisplay::new(got.to_owned()),
-                    ))?;
+                bail!(StrMatches::new(got.to_owned()));
             }
         }
 
@@ -143,27 +118,9 @@ impl ContainsPredicate {
         let result = find_subsequence(got, expect).is_some();
         if result != self.expected_result {
             if self.expected_result {
-                Err(AssertionError::new(AssertionKind::OutputMismatch))
-                    .context("expected to contain")
-                    .context(KeyValueDisplay::new(
-                        "expect",
-                        DebugDisplay::new(expect.to_owned()),
-                    ))
-                    .context(KeyValueDisplay::new(
-                        "got",
-                        DebugDisplay::new(got.to_owned()),
-                    ))?;
+                bail!(BytesDoesntContain::new(expect.to_owned(), got.to_owned()));
             } else {
-                Err(AssertionError::new(AssertionKind::OutputMismatch))
-                    .context("expected to not contain")
-                    .context(KeyValueDisplay::new(
-                        "expect",
-                        DebugDisplay::new(expect.to_owned()),
-                    ))
-                    .context(KeyValueDisplay::new(
-                        "got",
-                        DebugDisplay::new(got.to_owned()),
-                    ))?;
+                bail!(BytesContains::new(expect.to_owned(), got.to_owned()));
             }
         }
 
@@ -174,27 +131,9 @@ impl ContainsPredicate {
         let result = got.contains(expect);
         if result != self.expected_result {
             if self.expected_result {
-                Err(AssertionError::new(AssertionKind::OutputMismatch))
-                    .context("expected to contain")
-                    .context(KeyValueDisplay::new(
-                        "expect",
-                        QuotedDisplay::new(expect.to_owned()),
-                    ))
-                    .context(KeyValueDisplay::new(
-                        "got",
-                        QuotedDisplay::new(got.to_owned()),
-                    ))?;
+                bail!(StrDoesntContain::new(expect.to_owned(), got.to_owned()));
             } else {
-                Err(AssertionError::new(AssertionKind::OutputMismatch))
-                    .context("expected to not contain")
-                    .context(KeyValueDisplay::new(
-                        "expect",
-                        QuotedDisplay::new(expect.to_owned()),
-                    ))
-                    .context(KeyValueDisplay::new(
-                        "got",
-                        QuotedDisplay::new(got.to_owned()),
-                    ))?;
+                bail!(StrContains::new(expect.to_owned(), got.to_owned()));
             }
         }
 
@@ -213,16 +152,7 @@ impl FnPredicate {
         let got = String::from_utf8_lossy(got);
         let pred = &self.pred;
         if !pred(&got) {
-            Err(AssertionError::new(AssertionKind::OutputMismatch))
-                .context("predicate failed")
-                .context(KeyValueDisplay::new(
-                    "got",
-                    QuotedDisplay::new(got.into_owned()),
-                ))
-                .context(KeyValueDisplay::new(
-                    "message",
-                    QuotedDisplay::new(self.msg.to_owned()),
-                ))?;
+            bail!(PredicateFailed::new(self.msg.clone(), got.into_owned()));
         }
 
         Ok(())
@@ -389,8 +319,8 @@ impl OutputKind {
 impl fmt::Display for OutputKind {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
-            OutputKind::StdOut => writeln!(f, "stdout"),
-            OutputKind::StdErr => writeln!(f, "stderr"),
+            OutputKind::StdOut => write!(f, "stdout"),
+            OutputKind::StdErr => write!(f, "stderr"),
         }
     }
 }
@@ -408,9 +338,198 @@ impl OutputPredicate {
 
     pub(crate) fn verify(&self, got: &process::Output) -> Result<()> {
         let got = self.kind.select(got);
-        let result = self.pred
-            .verify(got)
-            .context(KeyValueDisplay::new("stream", self.kind))?;
+        let result = self.pred.verify(got).context(OutputError::new(self.kind))?;
         Ok(result)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct StrDoesntContain {
+    needle: String,
+    haystack: String,
+}
+
+impl StrDoesntContain {
+    pub fn new(needle: String, haystack: String) -> Self {
+        Self { needle, haystack }
+    }
+}
+
+impl fmt::Display for StrDoesntContain {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Expected to contain needle.\n")?;
+        write!(f, "needle=```{}```\n", self.needle)?;
+        write!(f, "haystack=```{}```", self.haystack)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct BytesDoesntContain {
+    needle: Vec<u8>,
+    haystack: Vec<u8>,
+}
+
+impl BytesDoesntContain {
+    pub fn new(needle: Vec<u8>, haystack: Vec<u8>) -> Self {
+        Self { needle, haystack }
+    }
+}
+
+impl fmt::Display for BytesDoesntContain {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Expected to contain needle.\n")?;
+        write!(f, "needle=```{:?}```\n", self.needle)?;
+        write!(f, "haystack=```{:?}```", self.haystack)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct StrContains {
+    needle: String,
+    haystack: String,
+}
+
+impl StrContains {
+    pub fn new(needle: String, haystack: String) -> Self {
+        Self { needle, haystack }
+    }
+}
+
+impl fmt::Display for StrContains {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Expected to not contain needle.\n")?;
+        write!(f, "needle=```{}```\n", self.needle)?;
+        write!(f, "haystack=```{}```", self.haystack)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct BytesContains {
+    needle: Vec<u8>,
+    haystack: Vec<u8>,
+}
+
+impl BytesContains {
+    pub fn new(needle: Vec<u8>, haystack: Vec<u8>) -> Self {
+        Self { needle, haystack }
+    }
+}
+
+impl fmt::Display for BytesContains {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Expected to not contain needle.\n")?;
+        write!(f, "needle=```{:?}```\n", self.needle)?;
+        write!(f, "haystack=```{:?}```", self.haystack)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct StrDoesntMatch {
+    expected: String,
+    got: String,
+    diff: String,
+}
+
+impl StrDoesntMatch {
+    pub fn new(expected: String, got: String, diff: String) -> Self {
+        Self {
+            expected,
+            got,
+            diff,
+        }
+    }
+}
+
+impl fmt::Display for StrDoesntMatch {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Didn't match.\n")?;
+        write!(f, "diff=\n``{}```", self.diff)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct BytesDoesntMatch {
+    expected: Vec<u8>,
+    got: Vec<u8>,
+}
+
+impl BytesDoesntMatch {
+    pub fn new(expected: Vec<u8>, got: Vec<u8>) -> Self {
+        Self { expected, got }
+    }
+}
+
+impl fmt::Display for BytesDoesntMatch {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Didn't match.\n")?;
+        write!(f, "expected=```{:?}```\n", self.expected)?;
+        write!(f, "got=```{:?}```", self.got)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct StrMatches {
+    output: String,
+}
+
+impl StrMatches {
+    pub fn new(output: String) -> Self {
+        Self { output }
+    }
+}
+
+impl fmt::Display for StrMatches {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Expected to not match.")?;
+        write!(f, "output=```{}```", self.output)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct BytesMatches {
+    output: Vec<u8>,
+}
+
+impl BytesMatches {
+    pub fn new(output: Vec<u8>) -> Self {
+        Self { output }
+    }
+}
+
+impl fmt::Display for BytesMatches {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Expected to not match.")?;
+        write!(f, "output=```{:?}```", self.output)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct PredicateFailed {
+    msg: String,
+    got: String,
+}
+
+impl PredicateFailed {
+    pub fn new(msg: String, got: String) -> Self {
+        Self { msg, got }
+    }
+}
+
+impl fmt::Display for PredicateFailed {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Predicate failed: {}", self.msg)?;
+        write!(f, "got=```{}```\n", self.got)
+    }
+}
+
+#[derive(Fail, Debug)]
+#[fail(display = "Unexpected {}", kind)]
+pub struct OutputError {
+    kind: OutputKind,
+}
+
+impl OutputError {
+    pub fn new(kind: OutputKind) -> Self {
+        Self { kind }
     }
 }

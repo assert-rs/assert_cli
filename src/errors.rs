@@ -1,3 +1,4 @@
+use std::ffi;
 use std::fmt;
 use std::result;
 
@@ -5,150 +6,108 @@ use failure;
 
 pub type Result<T> = result::Result<T, failure::Error>;
 
-#[derive(Copy, Clone, Eq, PartialEq, Debug, Fail)]
-pub enum AssertionKind {
-    #[fail(display = "Spawn failed.")] Spawn,
-    #[fail(display = "Status mismatch.")] StatusMismatch,
-    #[fail(display = "Exit code mismatch.")] ExitCodeMismatch,
-    #[fail(display = "Output mismatch.")] OutputMismatch,
+fn format_cmd(cmd: &[ffi::OsString]) -> String {
+    let result: Vec<String> = cmd.iter()
+        .map(|s| s.to_string_lossy().into_owned())
+        .collect();
+    result.join(" ")
 }
 
-#[derive(Debug)]
+#[derive(Fail, Debug)]
+pub struct SpawnError {
+    cmd: Vec<ffi::OsString>,
+}
+
+impl SpawnError {
+    pub fn new(cmd: Vec<ffi::OsString>) -> Self {
+        Self { cmd }
+    }
+}
+
+impl fmt::Display for SpawnError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Failed to run `{}`", format_cmd(&self.cmd))
+    }
+}
+
+#[derive(Fail, Debug)]
 pub struct AssertionError {
-    inner: failure::Context<AssertionKind>,
+    cmd: Vec<ffi::OsString>,
 }
 
 impl AssertionError {
-    pub fn new(kind: AssertionKind) -> Self {
-        Self { inner: kind.into() }
-    }
-
-    pub fn kind(&self) -> AssertionKind {
-        *self.inner.get_context()
-    }
-}
-
-impl failure::Fail for AssertionError {
-    fn cause(&self) -> Option<&failure::Fail> {
-        self.inner.cause()
-    }
-
-    fn backtrace(&self) -> Option<&failure::Backtrace> {
-        self.inner.backtrace()
+    pub fn new(cmd: Vec<ffi::OsString>) -> Self {
+        Self { cmd }
     }
 }
 
 impl fmt::Display for AssertionError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        writeln!(f, "CLI Assertion Error: {}", self.inner)
+        write!(f, "Assertion failed for `{}`", format_cmd(&self.cmd))
     }
 }
 
-impl From<AssertionKind> for AssertionError {
-    fn from(kind: AssertionKind) -> AssertionError {
-        AssertionError {
-            inner: failure::Context::new(kind),
+#[derive(Fail, Debug)]
+pub struct StatusError {
+    unexpected: bool,
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+}
+
+impl StatusError {
+    pub fn new(unexpected: bool, stdout: Vec<u8>, stderr: Vec<u8>) -> Self {
+        Self {
+            unexpected,
+            stdout,
+            stderr,
         }
     }
 }
 
-impl From<failure::Context<AssertionKind>> for AssertionError {
-    fn from(inner: failure::Context<AssertionKind>) -> AssertionError {
-        AssertionError { inner: inner }
-    }
-}
-
-#[derive(Debug)]
-pub struct KeyValueDisplay<D>
-where
-    D: fmt::Display + Send + Sync + 'static,
-{
-    key: &'static str,
-    context: D,
-}
-
-impl<D> KeyValueDisplay<D>
-where
-    D: fmt::Display + Send + Sync + 'static,
-{
-    pub fn new(key: &'static str, context: D) -> Self {
-        Self { key, context }
-    }
-
-    pub fn key(&self) -> &str {
-        self.key
-    }
-
-    pub fn context(&self) -> &D {
-        &self.context
-    }
-}
-
-impl<D> fmt::Display for KeyValueDisplay<D>
-where
-    D: fmt::Display + Send + Sync + 'static,
-{
+impl fmt::Display for StatusError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}={}", self.key, self.context)
+        let out = String::from_utf8_lossy(&self.stdout);
+        let err = String::from_utf8_lossy(&self.stderr);
+        writeln!(
+            f,
+            "Unexpected {} return status",
+            if self.unexpected {
+                "success"
+            } else {
+                "failure"
+            }
+        )?;
+        writeln!(f, "stdout=```{}```", out)?;
+        write!(f, "stderr=```{}```", err)
     }
 }
 
-#[derive(Debug)]
-pub struct DebugDisplay<D>
-where
-    D: fmt::Debug + Send + Sync + 'static,
-{
-    context: D,
+#[derive(Fail, Debug)]
+pub struct ExitCodeError {
+    expected: Option<i32>,
+    got: Option<i32>,
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
 }
 
-impl<D> DebugDisplay<D>
-where
-    D: fmt::Debug + Send + Sync + 'static,
-{
-    pub fn new(context: D) -> Self {
-        Self { context }
-    }
-
-    pub fn context(&self) -> &D {
-        &self.context
+impl ExitCodeError {
+    pub fn new(expected: Option<i32>, got: Option<i32>, stdout: Vec<u8>, stderr: Vec<u8>) -> Self {
+        Self {
+            expected,
+            got,
+            stdout,
+            stderr,
+        }
     }
 }
 
-impl<D> fmt::Display for DebugDisplay<D>
-where
-    D: fmt::Debug + Send + Sync + 'static,
-{
+impl fmt::Display for ExitCodeError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self.context)
-    }
-}
-
-#[derive(Debug)]
-pub struct QuotedDisplay<D>
-where
-    D: fmt::Display + Send + Sync + 'static,
-{
-    context: D,
-}
-
-impl<D> QuotedDisplay<D>
-where
-    D: fmt::Display + Send + Sync + 'static,
-{
-    pub fn new(context: D) -> Self {
-        Self { context }
-    }
-
-    pub fn context(&self) -> &D {
-        &self.context
-    }
-}
-
-impl<D> fmt::Display for QuotedDisplay<D>
-where
-    D: fmt::Display + Send + Sync + 'static,
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "```{}```", self.context)
+        let out = String::from_utf8_lossy(&self.stdout);
+        let err = String::from_utf8_lossy(&self.stderr);
+        writeln!(f, "expected={:?}", self.expected)?;
+        writeln!(f, "got={:?}", self.got)?;
+        writeln!(f, "stdout=```{}```", out)?;
+        write!(f, "stderr=```{}```", err)
     }
 }

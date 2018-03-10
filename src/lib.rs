@@ -120,6 +120,7 @@
 extern crate colored;
 extern crate difference;
 extern crate environment;
+#[macro_use]
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;

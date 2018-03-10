@@ -7,6 +7,7 @@ use std::vec::Vec;
 
 use environment::Environment;
 use failure;
+use failure::Fail;
 use failure::ResultExt;
 
 use errors::*;
@@ -345,7 +346,9 @@ impl Assert {
             None => command,
         };
 
-        let mut spawned = command.spawn().context(AssertionKind::Spawn)?;
+        let mut spawned = command
+            .spawn()
+            .with_context(|_| SpawnError::new(self.cmd.clone()))?;
 
         if let Some(ref contents) = self.stdin_contents {
             spawned
@@ -357,43 +360,30 @@ impl Assert {
         let output = spawned.wait_with_output()?;
 
         if let Some(expect_success) = self.expect_success {
-            if expect_success != output.status.success() {
-                let out = String::from_utf8_lossy(&output.stdout).to_string();
-                let err = String::from_utf8_lossy(&output.stderr).to_string();
-                Err(AssertionError::new(AssertionKind::StatusMismatch))
-                    .context(if expect_success {
-                        "expected to succeed"
-                    } else {
-                        "expected to fail"
-                    })
-                    .context(KeyValueDisplay::new("stdout", QuotedDisplay::new(out)))
-                    .context(KeyValueDisplay::new("stderr", QuotedDisplay::new(err)))
-                    .with_context(|_| KeyValueDisplay::new("command", format!("{:?}", command)))?;
+            let actual_success = output.status.success();
+            if expect_success != actual_success {
+                Err(failure::Context::new(StatusError::new(
+                    actual_success,
+                    output.stdout.clone(),
+                    output.stderr.clone(),
+                )).context(AssertionError::new(self.cmd.clone())))?;
             }
         }
 
         if self.expect_exit_code.is_some() && self.expect_exit_code != output.status.code() {
-            let out = String::from_utf8_lossy(&output.stdout).to_string();
-            let err = String::from_utf8_lossy(&output.stderr).to_string();
-            Err(AssertionError::new(AssertionKind::ExitCodeMismatch))
-                .context(KeyValueDisplay::new(
-                    "expected",
-                    self.expect_exit_code.expect("is_some already called"),
-                ))
-                .context(KeyValueDisplay::new(
-                    "got",
-                    output.status.code().unwrap_or_default(),
-                ))
-                .context(KeyValueDisplay::new("stdout", QuotedDisplay::new(out)))
-                .context(KeyValueDisplay::new("stderr", QuotedDisplay::new(err)))
-                .with_context(|_| KeyValueDisplay::new("command", format!("{:?}", command)))?;
+            Err(failure::Context::new(ExitCodeError::new(
+                self.expect_exit_code,
+                output.status.code(),
+                output.stdout.clone(),
+                output.stderr.clone(),
+            )).context(AssertionError::new(self.cmd.clone())))?;
         }
 
         self.expect_output
             .iter()
             .map(|a| {
                 a.verify(&output)
-                    .with_context(|_| KeyValueDisplay::new("command", format!("{:?}", command)))
+                    .with_context(|_| AssertionError::new(self.cmd.clone()))
                     .map_err(|e| failure::Error::from(e))
             })
             .collect::<Result<Vec<()>>>()?;
