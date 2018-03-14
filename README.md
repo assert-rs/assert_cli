@@ -75,7 +75,7 @@ More detailed information is available in the [documentation]. :-)
 
 Other crates that might be useful in testing command line programs.
 * [dir-diff][dir-diff] for testing file side-effects.
-* [tempdir][tempdir] for scratchpad directories.
+* [tempfile][tempfile] for scratchpad directories.
 * [duct][duct] for orchestrating multiple processes.
 
 ## License
@@ -99,5 +99,5 @@ conditions.
 [Documentation]: https://docs.rs/assert_cli
 [Environment]: https://github.com/Freyskeyd/environment
 [dir-diff]: https://crates.io/crates/dir-diff
-[tempdir]: https://crates.io/crates/tempdir
+[tempfile]: https://crates.io/crates/tempfile
 [duct]: https://crates.io/crates/duct
