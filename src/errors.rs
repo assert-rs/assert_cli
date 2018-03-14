@@ -1,10 +1,8 @@
 use std::ffi;
 use std::fmt;
-use std::result;
+use std::io;
 
 use failure;
-
-pub type Result<T> = result::Result<T, failure::Error>;
 
 fn format_cmd(cmd: &[ffi::OsString]) -> String {
     let result: Vec<String> = cmd.iter()
@@ -13,31 +11,87 @@ fn format_cmd(cmd: &[ffi::OsString]) -> String {
     result.join(" ")
 }
 
-#[derive(Fail, Debug)]
-pub struct SpawnError {
-    cmd: Vec<ffi::OsString>,
+pub trait ChainFail {
+    fn chain<E>(self, cause: E) -> Self
+    where
+        E: Into<failure::Error>;
 }
 
-impl SpawnError {
-    pub fn new(cmd: Vec<ffi::OsString>) -> Self {
-        Self { cmd }
+pub trait ResultChainExt<T> {
+    fn chain<C>(self, chainable: C) -> Result<T, C>
+    where
+        C: ChainFail;
+
+    fn chain_with<F, C>(self, chainable: F) -> Result<T, C>
+    where
+        F: FnOnce() -> C,
+        C: ChainFail;
+}
+
+impl<T> ResultChainExt<T> for Result<T, failure::Error> {
+    fn chain<C>(self, chainable: C) -> Result<T, C>
+    where
+        C: ChainFail,
+    {
+        self.map_err(|e| chainable.chain(e))
+    }
+
+    fn chain_with<F, C>(self, chainable: F) -> Result<T, C>
+    where
+        F: FnOnce() -> C,
+        C: ChainFail,
+    {
+        self.map_err(|e| chainable().chain(e))
     }
 }
 
-impl fmt::Display for SpawnError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "Failed to run `{}`", format_cmd(&self.cmd))
+impl<T> ResultChainExt<T> for Result<T, io::Error> {
+    fn chain<C>(self, chainable: C) -> Result<T, C>
+    where
+        C: ChainFail,
+    {
+        self.map_err(|e| chainable.chain(e))
+    }
+
+    fn chain_with<F, C>(self, chainable: F) -> Result<T, C>
+    where
+        F: FnOnce() -> C,
+        C: ChainFail,
+    {
+        self.map_err(|e| chainable().chain(e))
     }
 }
 
-#[derive(Fail, Debug)]
+/// Failure when processing assertions.
+#[derive(Debug)]
 pub struct AssertionError {
     cmd: Vec<ffi::OsString>,
+    cause: Option<failure::Error>,
 }
 
 impl AssertionError {
-    pub fn new(cmd: Vec<ffi::OsString>) -> Self {
-        Self { cmd }
+    pub(crate) fn new(cmd: Vec<ffi::OsString>) -> Self {
+        Self { cmd, cause: None }
+    }
+}
+
+impl failure::Fail for AssertionError {
+    fn cause(&self) -> Option<&failure::Fail> {
+        self.cause.as_ref().map(failure::Error::cause)
+    }
+
+    fn backtrace(&self) -> Option<&failure::Backtrace> {
+        None
+    }
+}
+
+impl ChainFail for AssertionError {
+    fn chain<E>(mut self, error: E) -> Self
+    where
+        E: Into<failure::Error>,
+    {
+        self.cause = Some(error.into());
+        self
     }
 }
 
@@ -47,11 +101,12 @@ impl fmt::Display for AssertionError {
     }
 }
 
-#[derive(Fail, Debug)]
+#[derive(Debug)]
 pub struct StatusError {
     unexpected: bool,
     stdout: Vec<u8>,
     stderr: Vec<u8>,
+    cause: Option<failure::Error>,
 }
 
 impl StatusError {
@@ -60,7 +115,28 @@ impl StatusError {
             unexpected,
             stdout,
             stderr,
+            cause: None,
         }
+    }
+}
+
+impl failure::Fail for StatusError {
+    fn cause(&self) -> Option<&failure::Fail> {
+        self.cause.as_ref().map(failure::Error::cause)
+    }
+
+    fn backtrace(&self) -> Option<&failure::Backtrace> {
+        None
+    }
+}
+
+impl ChainFail for StatusError {
+    fn chain<E>(mut self, error: E) -> Self
+    where
+        E: Into<failure::Error>,
+    {
+        self.cause = Some(error.into());
+        self
     }
 }
 
@@ -70,7 +146,7 @@ impl fmt::Display for StatusError {
         let err = String::from_utf8_lossy(&self.stderr);
         writeln!(
             f,
-            "Unexpected {} return status",
+            "Unexpected return status: {}",
             if self.unexpected {
                 "success"
             } else {
@@ -82,12 +158,13 @@ impl fmt::Display for StatusError {
     }
 }
 
-#[derive(Fail, Debug)]
+#[derive(Debug)]
 pub struct ExitCodeError {
     expected: Option<i32>,
     got: Option<i32>,
     stdout: Vec<u8>,
     stderr: Vec<u8>,
+    cause: Option<failure::Error>,
 }
 
 impl ExitCodeError {
@@ -97,7 +174,28 @@ impl ExitCodeError {
             got,
             stdout,
             stderr,
+            cause: None,
         }
+    }
+}
+
+impl failure::Fail for ExitCodeError {
+    fn cause(&self) -> Option<&failure::Fail> {
+        self.cause.as_ref().map(failure::Error::cause)
+    }
+
+    fn backtrace(&self) -> Option<&failure::Backtrace> {
+        None
+    }
+}
+
+impl ChainFail for ExitCodeError {
+    fn chain<E>(mut self, error: E) -> Self
+    where
+        E: Into<failure::Error>,
+    {
+        self.cause = Some(error.into());
+        self
     }
 }
 

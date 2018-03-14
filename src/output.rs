@@ -3,7 +3,7 @@ use std::process;
 use std::rc;
 
 use difference::Changeset;
-use failure::ResultExt;
+use failure;
 
 use errors::*;
 use diff;
@@ -42,7 +42,7 @@ struct IsPredicate {
 }
 
 impl IsPredicate {
-    pub fn verify(&self, got: &[u8]) -> Result<()> {
+    pub fn verify(&self, got: &[u8]) -> Result<(), failure::Error> {
         match self.expect {
             Content::Str(ref expect) => {
                 self.verify_str(expect, String::from_utf8_lossy(got).as_ref())
@@ -51,7 +51,7 @@ impl IsPredicate {
         }
     }
 
-    fn verify_bytes(&self, expect: &[u8], got: &[u8]) -> Result<()> {
+    fn verify_bytes(&self, expect: &[u8], got: &[u8]) -> Result<(), failure::Error> {
         let result = expect == got;
 
         if result != self.expected_result {
@@ -65,7 +65,7 @@ impl IsPredicate {
         Ok(())
     }
 
-    fn verify_str(&self, expect: &str, got: &str) -> Result<()> {
+    fn verify_str(&self, expect: &str, got: &str) -> Result<(), failure::Error> {
         let differences = Changeset::new(expect.trim(), got.trim(), "\n");
         let result = differences.distance == 0;
 
@@ -105,7 +105,7 @@ fn test_find_subsequence() {
 }
 
 impl ContainsPredicate {
-    pub fn verify(&self, got: &[u8]) -> Result<()> {
+    pub fn verify(&self, got: &[u8]) -> Result<(), failure::Error> {
         match self.expect {
             Content::Str(ref expect) => {
                 self.verify_str(expect, String::from_utf8_lossy(got).as_ref())
@@ -114,7 +114,7 @@ impl ContainsPredicate {
         }
     }
 
-    pub fn verify_bytes(&self, expect: &[u8], got: &[u8]) -> Result<()> {
+    pub fn verify_bytes(&self, expect: &[u8], got: &[u8]) -> Result<(), failure::Error> {
         let result = find_subsequence(got, expect).is_some();
         if result != self.expected_result {
             if self.expected_result {
@@ -127,7 +127,7 @@ impl ContainsPredicate {
         Ok(())
     }
 
-    pub fn verify_str(&self, expect: &str, got: &str) -> Result<()> {
+    pub fn verify_str(&self, expect: &str, got: &str) -> Result<(), failure::Error> {
         let result = got.contains(expect);
         if result != self.expected_result {
             if self.expected_result {
@@ -148,7 +148,7 @@ struct FnPredicate {
 }
 
 impl FnPredicate {
-    pub fn verify(&self, got: &[u8]) -> Result<()> {
+    pub fn verify(&self, got: &[u8]) -> Result<(), failure::Error> {
         let got = String::from_utf8_lossy(got);
         let pred = &self.pred;
         if !pred(&got) {
@@ -173,7 +173,7 @@ enum ContentPredicate {
 }
 
 impl ContentPredicate {
-    pub fn verify(&self, got: &[u8]) -> Result<()> {
+    pub fn verify(&self, got: &[u8]) -> Result<(), failure::Error> {
         match *self {
             ContentPredicate::Is(ref pred) => pred.verify(got),
             ContentPredicate::Contains(ref pred) => pred.verify(got),
@@ -296,7 +296,7 @@ impl Output {
         Self { pred }
     }
 
-    pub(crate) fn verify(&self, got: &[u8]) -> Result<()> {
+    pub(crate) fn verify(&self, got: &[u8]) -> Result<(), failure::Error> {
         self.pred.verify(got)
     }
 }
@@ -336,9 +336,9 @@ impl OutputPredicate {
         Self { kind, pred }
     }
 
-    pub(crate) fn verify(&self, got: &process::Output) -> Result<()> {
+    pub(crate) fn verify(&self, got: &process::Output) -> Result<(), OutputError> {
         let got = self.kind.select(got);
-        let result = self.pred.verify(got).context(OutputError::new(self.kind))?;
+        let result = self.pred.verify(got).chain(OutputError::new(self.kind))?;
         Ok(result)
     }
 }
@@ -522,14 +522,57 @@ impl fmt::Display for PredicateFailed {
     }
 }
 
-#[derive(Fail, Debug)]
-#[fail(display = "Unexpected {}", kind)]
+#[derive(Debug)]
 pub struct OutputError {
     kind: OutputKind,
+    cause: Option<failure::Error>,
 }
 
 impl OutputError {
     pub fn new(kind: OutputKind) -> Self {
-        Self { kind }
+        Self { kind, cause: None }
+    }
+}
+
+impl failure::Fail for OutputError {
+    fn cause(&self) -> Option<&failure::Fail> {
+        self.cause.as_ref().map(failure::Error::cause)
+    }
+
+    fn backtrace(&self) -> Option<&failure::Backtrace> {
+        None
+    }
+}
+
+impl ChainFail for OutputError {
+    fn chain<E>(mut self, error: E) -> Self
+    where
+        E: Into<failure::Error>,
+    {
+        self.cause = Some(error.into());
+        self
+    }
+}
+
+impl fmt::Display for OutputError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Unexpected {}", self.kind)
+    }
+}
+
+impl<T> ResultChainExt<T> for Result<T, OutputError> {
+    fn chain<C>(self, chainable: C) -> Result<T, C>
+    where
+        C: ChainFail,
+    {
+        self.map_err(|e| chainable.chain(e))
+    }
+
+    fn chain_with<F, C>(self, chainable: F) -> Result<T, C>
+    where
+        F: FnOnce() -> C,
+        C: ChainFail,
+    {
+        self.map_err(|e| chainable().chain(e))
     }
 }

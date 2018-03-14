@@ -127,6 +127,7 @@ extern crate failure_derive;
 extern crate serde_json;
 
 mod errors;
+pub use errors::AssertionError;
 
 #[macro_use]
 mod macros;

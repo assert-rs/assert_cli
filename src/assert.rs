@@ -8,7 +8,6 @@ use std::vec::Vec;
 use environment::Environment;
 use failure;
 use failure::Fail;
-use failure::ResultExt;
 
 use errors::*;
 use output::{Content, Output, OutputKind, OutputPredicate};
@@ -328,7 +327,7 @@ impl Assert {
     ///     .execute();
     /// assert!(test.is_ok());
     /// ```
-    pub fn execute(self) -> Result<()> {
+    pub fn execute(self) -> Result<(), AssertionError> {
         let bin = &self.cmd[0];
 
         let args: Vec<_> = self.cmd.iter().skip(1).collect();
@@ -348,45 +347,51 @@ impl Assert {
 
         let mut spawned = command
             .spawn()
-            .with_context(|_| SpawnError::new(self.cmd.clone()))?;
+            .chain_with(|| AssertionError::new(self.cmd.clone()))?;
 
         if let Some(ref contents) = self.stdin_contents {
             spawned
                 .stdin
                 .as_mut()
                 .expect("Couldn't get mut ref to command stdin")
-                .write_all(contents)?;
+                .write_all(contents)
+                .chain_with(|| AssertionError::new(self.cmd.clone()))?;
         }
-        let output = spawned.wait_with_output()?;
+        let output = spawned
+            .wait_with_output()
+            .chain_with(|| AssertionError::new(self.cmd.clone()))?;
 
         if let Some(expect_success) = self.expect_success {
             let actual_success = output.status.success();
             if expect_success != actual_success {
-                Err(failure::Context::new(StatusError::new(
-                    actual_success,
-                    output.stdout.clone(),
-                    output.stderr.clone(),
-                )).context(AssertionError::new(self.cmd.clone())))?;
+                return Err(
+                    AssertionError::new(self.cmd.clone()).chain(StatusError::new(
+                        actual_success,
+                        output.stdout.clone(),
+                        output.stderr.clone(),
+                    )),
+                )?;
             }
         }
 
         if self.expect_exit_code.is_some() && self.expect_exit_code != output.status.code() {
-            Err(failure::Context::new(ExitCodeError::new(
-                self.expect_exit_code,
-                output.status.code(),
-                output.stdout.clone(),
-                output.stderr.clone(),
-            )).context(AssertionError::new(self.cmd.clone())))?;
+            return Err(
+                AssertionError::new(self.cmd.clone()).chain(ExitCodeError::new(
+                    self.expect_exit_code,
+                    output.status.code(),
+                    output.stdout.clone(),
+                    output.stderr.clone(),
+                )),
+            );
         }
 
         self.expect_output
             .iter()
             .map(|a| {
                 a.verify(&output)
-                    .with_context(|_| AssertionError::new(self.cmd.clone()))
-                    .map_err(|e| failure::Error::from(e))
+                    .chain_with(|| AssertionError::new(self.cmd.clone()))
             })
-            .collect::<Result<Vec<()>>>()?;
+            .collect::<Result<Vec<()>, AssertionError>>()?;
 
         Ok(())
     }
