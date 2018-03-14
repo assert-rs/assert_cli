@@ -338,8 +338,8 @@ impl OutputPredicate {
 
     pub(crate) fn verify(&self, got: &process::Output) -> Result<(), OutputError> {
         let got = self.kind.select(got);
-        let result = self.pred.verify(got).chain(OutputError::new(self.kind))?;
-        Ok(result)
+        self.pred.verify(got).chain(OutputError::new(self.kind))?;
+        Ok(())
     }
 }
 
