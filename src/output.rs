@@ -1,10 +1,12 @@
-use self::errors::*;
-pub use self::errors::{Error, ErrorKind};
-use diff;
-use difference::Changeset;
 use std::fmt;
 use std::process;
 use std::rc;
+
+use difference::Changeset;
+use failure;
+
+use errors::*;
+use diff;
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum Content {
@@ -40,7 +42,7 @@ struct IsPredicate {
 }
 
 impl IsPredicate {
-    pub fn verify(&self, got: &[u8]) -> Result<()> {
+    pub fn verify(&self, got: &[u8]) -> Result<(), failure::Error> {
         match self.expect {
             Content::Str(ref expect) => {
                 self.verify_str(expect, String::from_utf8_lossy(got).as_ref())
@@ -49,37 +51,34 @@ impl IsPredicate {
         }
     }
 
-    fn verify_bytes(&self, expect: &[u8], got: &[u8]) -> Result<()> {
+    fn verify_bytes(&self, expect: &[u8], got: &[u8]) -> Result<(), failure::Error> {
         let result = expect == got;
 
         if result != self.expected_result {
             if self.expected_result {
-                bail!(ErrorKind::BytesDoesntMatch(
-                    expect.to_owned(),
-                    got.to_owned(),
-                ));
+                bail!(BytesDoesntMatch::new(expect.to_owned(), got.to_owned()));
             } else {
-                bail!(ErrorKind::BytesMatches(got.to_owned()));
+                bail!(BytesMatches::new(got.to_owned()));
             }
         }
 
         Ok(())
     }
 
-    fn verify_str(&self, expect: &str, got: &str) -> Result<()> {
+    fn verify_str(&self, expect: &str, got: &str) -> Result<(), failure::Error> {
         let differences = Changeset::new(expect.trim(), got.trim(), "\n");
         let result = differences.distance == 0;
 
         if result != self.expected_result {
             if self.expected_result {
                 let nice_diff = diff::render(&differences)?;
-                bail!(ErrorKind::StrDoesntMatch(
+                bail!(StrDoesntMatch::new(
                     expect.to_owned(),
                     got.to_owned(),
                     nice_diff
                 ));
             } else {
-                bail!(ErrorKind::StrMatches(got.to_owned()));
+                bail!(StrMatches::new(got.to_owned()));
             }
         }
 
@@ -106,7 +105,7 @@ fn test_find_subsequence() {
 }
 
 impl ContainsPredicate {
-    pub fn verify(&self, got: &[u8]) -> Result<()> {
+    pub fn verify(&self, got: &[u8]) -> Result<(), failure::Error> {
         match self.expect {
             Content::Str(ref expect) => {
                 self.verify_str(expect, String::from_utf8_lossy(got).as_ref())
@@ -115,32 +114,26 @@ impl ContainsPredicate {
         }
     }
 
-    pub fn verify_bytes(&self, expect: &[u8], got: &[u8]) -> Result<()> {
+    pub fn verify_bytes(&self, expect: &[u8], got: &[u8]) -> Result<(), failure::Error> {
         let result = find_subsequence(got, expect).is_some();
         if result != self.expected_result {
             if self.expected_result {
-                bail!(ErrorKind::BytesDoesntContain(
-                    expect.to_owned(),
-                    got.to_owned()
-                ));
+                bail!(BytesDoesntContain::new(expect.to_owned(), got.to_owned()));
             } else {
-                bail!(ErrorKind::BytesContains(expect.to_owned(), got.to_owned()));
+                bail!(BytesContains::new(expect.to_owned(), got.to_owned()));
             }
         }
 
         Ok(())
     }
 
-    pub fn verify_str(&self, expect: &str, got: &str) -> Result<()> {
+    pub fn verify_str(&self, expect: &str, got: &str) -> Result<(), failure::Error> {
         let result = got.contains(expect);
         if result != self.expected_result {
             if self.expected_result {
-                bail!(ErrorKind::StrDoesntContain(
-                    expect.to_owned(),
-                    got.to_owned()
-                ));
+                bail!(StrDoesntContain::new(expect.to_owned(), got.to_owned()));
             } else {
-                bail!(ErrorKind::StrContains(expect.to_owned(), got.to_owned()));
+                bail!(StrContains::new(expect.to_owned(), got.to_owned()));
             }
         }
 
@@ -155,12 +148,11 @@ struct FnPredicate {
 }
 
 impl FnPredicate {
-    pub fn verify(&self, got: &[u8]) -> Result<()> {
+    pub fn verify(&self, got: &[u8]) -> Result<(), failure::Error> {
         let got = String::from_utf8_lossy(got);
         let pred = &self.pred;
         if !pred(&got) {
-            let err: Error = ErrorKind::PredicateFailed(got.into_owned(), self.msg.clone()).into();
-            bail!(err);
+            bail!(PredicateFailed::new(self.msg.clone(), got.into_owned()));
         }
 
         Ok(())
@@ -181,7 +173,7 @@ enum ContentPredicate {
 }
 
 impl ContentPredicate {
-    pub fn verify(&self, got: &[u8]) -> Result<()> {
+    pub fn verify(&self, got: &[u8]) -> Result<(), failure::Error> {
         match *self {
             ContentPredicate::Is(ref pred) => pred.verify(got),
             ContentPredicate::Contains(ref pred) => pred.verify(got),
@@ -304,7 +296,7 @@ impl Output {
         Self { pred }
     }
 
-    pub(crate) fn verify(&self, got: &[u8]) -> Result<()> {
+    pub(crate) fn verify(&self, got: &[u8]) -> Result<(), failure::Error> {
         self.pred.verify(got)
     }
 }
@@ -324,6 +316,15 @@ impl OutputKind {
     }
 }
 
+impl fmt::Display for OutputKind {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            OutputKind::StdOut => write!(f, "stdout"),
+            OutputKind::StdErr => write!(f, "stderr"),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct OutputPredicate {
     kind: OutputKind,
@@ -335,63 +336,243 @@ impl OutputPredicate {
         Self { kind, pred }
     }
 
-    pub(crate) fn verify(&self, got: &process::Output) -> Result<()> {
+    pub(crate) fn verify(&self, got: &process::Output) -> Result<(), OutputError> {
         let got = self.kind.select(got);
-        self.pred
-            .verify(got)
-            .chain_err(|| ErrorKind::OutputMismatch(self.kind))
+        self.pred.verify(got).chain(OutputError::new(self.kind))?;
+        Ok(())
     }
 }
 
-mod errors {
-    error_chain! {
-        foreign_links {
-            Fmt(::std::fmt::Error);
+#[derive(Fail, Debug)]
+pub struct StrDoesntContain {
+    needle: String,
+    haystack: String,
+}
+
+impl StrDoesntContain {
+    pub fn new(needle: String, haystack: String) -> Self {
+        Self { needle, haystack }
+    }
+}
+
+impl fmt::Display for StrDoesntContain {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Expected to contain needle.\n")?;
+        write!(f, "needle=```{}```\n", self.needle)?;
+        write!(f, "haystack=```{}```", self.haystack)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct BytesDoesntContain {
+    needle: Vec<u8>,
+    haystack: Vec<u8>,
+}
+
+impl BytesDoesntContain {
+    pub fn new(needle: Vec<u8>, haystack: Vec<u8>) -> Self {
+        Self { needle, haystack }
+    }
+}
+
+impl fmt::Display for BytesDoesntContain {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Expected to contain needle.\n")?;
+        write!(f, "needle=```{:?}```\n", self.needle)?;
+        write!(f, "haystack=```{:?}```", self.haystack)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct StrContains {
+    needle: String,
+    haystack: String,
+}
+
+impl StrContains {
+    pub fn new(needle: String, haystack: String) -> Self {
+        Self { needle, haystack }
+    }
+}
+
+impl fmt::Display for StrContains {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Expected to not contain needle.\n")?;
+        write!(f, "needle=```{}```\n", self.needle)?;
+        write!(f, "haystack=```{}```", self.haystack)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct BytesContains {
+    needle: Vec<u8>,
+    haystack: Vec<u8>,
+}
+
+impl BytesContains {
+    pub fn new(needle: Vec<u8>, haystack: Vec<u8>) -> Self {
+        Self { needle, haystack }
+    }
+}
+
+impl fmt::Display for BytesContains {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Expected to not contain needle.\n")?;
+        write!(f, "needle=```{:?}```\n", self.needle)?;
+        write!(f, "haystack=```{:?}```", self.haystack)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct StrDoesntMatch {
+    expected: String,
+    got: String,
+    diff: String,
+}
+
+impl StrDoesntMatch {
+    pub fn new(expected: String, got: String, diff: String) -> Self {
+        Self {
+            expected,
+            got,
+            diff,
         }
-        errors {
-            StrDoesntContain(expected: String, got: String) {
-                description("Output was not as expected")
-                display("expected to contain {:?}\noutput=```{}```", expected, got)
-            }
-            BytesDoesntContain(expected: Vec<u8>, got: Vec<u8>) {
-                description("Output was not as expected")
-                display("expected to contain {:?}\noutput=```{:?}```", expected, got)
-            }
-            StrContains(expected: String, got: String) {
-                description("Output was not as expected")
-                display("expected to not contain {:?}\noutput=```{}```", expected, got)
-            }
-            BytesContains(expected: Vec<u8>, got: Vec<u8>) {
-                description("Output was not as expected")
-                display("expected to not contain {:?}\noutput=```{:?}```", expected, got)
-            }
-            StrDoesntMatch(expected: String, got: String, diff: String) {
-                description("Output was not as expected")
-                display("diff:\n{}", diff)
-            }
-            BytesDoesntMatch(expected: Vec<u8>, got: Vec<u8>) {
-                description("Output was not as expected")
-                display("expected=```{:?}```\noutput=```{:?}```", expected, got)
-            }
-            StrMatches(got: String) {
-                description("Output was not as expected")
-                display("expected to not match\noutput=```{}```", got)
-            }
-            BytesMatches(got: Vec<u8>) {
-                description("Output was not as expected")
-                display("expected to not match\noutput=```{:?}```", got)
-            }
-            PredicateFailed(got: String, msg: String) {
-                description("Output predicate failed")
-                display("{}\noutput=```{}```", msg, got)
-            }
-            OutputMismatch(kind: super::OutputKind) {
-                description("Output was not as expected")
-                display(
-                    "Unexpected {:?}",
-                    kind
-                )
-            }
-        }
+    }
+}
+
+impl fmt::Display for StrDoesntMatch {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Didn't match.\n")?;
+        write!(f, "diff=\n``{}```", self.diff)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct BytesDoesntMatch {
+    expected: Vec<u8>,
+    got: Vec<u8>,
+}
+
+impl BytesDoesntMatch {
+    pub fn new(expected: Vec<u8>, got: Vec<u8>) -> Self {
+        Self { expected, got }
+    }
+}
+
+impl fmt::Display for BytesDoesntMatch {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Didn't match.\n")?;
+        write!(f, "expected=```{:?}```\n", self.expected)?;
+        write!(f, "got=```{:?}```", self.got)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct StrMatches {
+    output: String,
+}
+
+impl StrMatches {
+    pub fn new(output: String) -> Self {
+        Self { output }
+    }
+}
+
+impl fmt::Display for StrMatches {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Expected to not match.")?;
+        write!(f, "output=```{}```", self.output)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct BytesMatches {
+    output: Vec<u8>,
+}
+
+impl BytesMatches {
+    pub fn new(output: Vec<u8>) -> Self {
+        Self { output }
+    }
+}
+
+impl fmt::Display for BytesMatches {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Expected to not match.")?;
+        write!(f, "output=```{:?}```", self.output)
+    }
+}
+
+#[derive(Fail, Debug)]
+pub struct PredicateFailed {
+    msg: String,
+    got: String,
+}
+
+impl PredicateFailed {
+    pub fn new(msg: String, got: String) -> Self {
+        Self { msg, got }
+    }
+}
+
+impl fmt::Display for PredicateFailed {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Predicate failed: {}", self.msg)?;
+        write!(f, "got=```{}```\n", self.got)
+    }
+}
+
+#[derive(Debug)]
+pub struct OutputError {
+    kind: OutputKind,
+    cause: Option<failure::Error>,
+}
+
+impl OutputError {
+    pub fn new(kind: OutputKind) -> Self {
+        Self { kind, cause: None }
+    }
+}
+
+impl failure::Fail for OutputError {
+    fn cause(&self) -> Option<&failure::Fail> {
+        self.cause.as_ref().map(failure::Error::cause)
+    }
+
+    fn backtrace(&self) -> Option<&failure::Backtrace> {
+        None
+    }
+}
+
+impl ChainFail for OutputError {
+    fn chain<E>(mut self, error: E) -> Self
+    where
+        E: Into<failure::Error>,
+    {
+        self.cause = Some(error.into());
+        self
+    }
+}
+
+impl fmt::Display for OutputError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        writeln!(f, "Unexpected {}", self.kind)
+    }
+}
+
+impl<T> ResultChainExt<T> for Result<T, OutputError> {
+    fn chain<C>(self, chainable: C) -> Result<T, C>
+    where
+        C: ChainFail,
+    {
+        self.map_err(|e| chainable.chain(e))
+    }
+
+    fn chain_with<F, C>(self, chainable: F) -> Result<T, C>
+    where
+        F: FnOnce() -> C,
+        C: ChainFail,
+    {
+        self.map_err(|e| chainable().chain(e))
     }
 }

@@ -1,17 +1,13 @@
-#[macro_use]
-extern crate error_chain;
+extern crate failure;
 
+use std::io;
+use std::io::Write;
 use std::env;
 use std::process;
 
-error_chain! {
-    foreign_links {
-        Env(env::VarError);
-        ParseInt(std::num::ParseIntError);
-    }
-}
+use failure::ResultExt;
 
-fn run() -> Result<()> {
+fn run() -> Result<(), failure::Error> {
     if let Ok(text) = env::var("stdout") {
         println!("{}", text);
     }
@@ -23,9 +19,18 @@ fn run() -> Result<()> {
         .ok()
         .map(|v| v.parse::<i32>())
         .map_or(Ok(None), |r| r.map(Some))
-        .chain_err(|| "Invalid exit code")?
+        .context("Invalid exit code")?
         .unwrap_or(0);
     process::exit(code);
 }
 
-quick_main!(run);
+fn main() {
+    let code = match run() {
+        Ok(_) => 0,
+        Err(ref e) => {
+            write!(&mut io::stderr(), "{}", e).expect("writing to stderr won't fail");
+            1
+        }
+    };
+    process::exit(code);
+}

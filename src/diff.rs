@@ -1,7 +1,7 @@
-extern crate colored;
-use self::colored::Colorize;
-use difference::{Changeset, Difference};
 use std::fmt::{Error as fmtError, Write};
+
+use colored::Colorize;
+use difference::{Changeset, Difference};
 
 pub fn render(&Changeset { ref diffs, .. }: &Changeset) -> Result<String, fmtError> {
     let mut t = String::new();

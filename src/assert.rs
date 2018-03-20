@@ -1,13 +1,16 @@
-use environment::Environment;
-use error_chain::ChainedError;
-use errors::*;
-use output::{Content, Output, OutputKind, OutputPredicate};
 use std::default;
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::vec::Vec;
+
+use environment::Environment;
+use failure;
+use failure::Fail;
+
+use errors::*;
+use output::{Content, Output, OutputKind, OutputPredicate};
 
 /// Assertions for a specific command.
 #[derive(Debug)]
@@ -324,7 +327,7 @@ impl Assert {
     ///     .execute();
     /// assert!(test.is_ok());
     /// ```
-    pub fn execute(self) -> Result<()> {
+    pub fn execute(self) -> Result<(), AssertionError> {
         let bin = &self.cmd[0];
 
         let args: Vec<_> = self.cmd.iter().skip(1).collect();
@@ -344,42 +347,51 @@ impl Assert {
 
         let mut spawned = command
             .spawn()
-            .chain_err(|| ErrorKind::SpawnFailed(self.cmd.clone()))?;
+            .chain_with(|| AssertionError::new(self.cmd.clone()))?;
 
         if let Some(ref contents) = self.stdin_contents {
             spawned
                 .stdin
                 .as_mut()
                 .expect("Couldn't get mut ref to command stdin")
-                .write_all(contents)?;
+                .write_all(contents)
+                .chain_with(|| AssertionError::new(self.cmd.clone()))?;
         }
-        let output = spawned.wait_with_output()?;
+        let output = spawned
+            .wait_with_output()
+            .chain_with(|| AssertionError::new(self.cmd.clone()))?;
 
         if let Some(expect_success) = self.expect_success {
-            if expect_success != output.status.success() {
-                let out = String::from_utf8_lossy(&output.stdout).to_string();
-                let err = String::from_utf8_lossy(&output.stderr).to_string();
-                let err: Error = ErrorKind::StatusMismatch(expect_success, out, err).into();
-                bail!(err.chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone())));
+            let actual_success = output.status.success();
+            if expect_success != actual_success {
+                return Err(
+                    AssertionError::new(self.cmd.clone()).chain(StatusError::new(
+                        actual_success,
+                        output.stdout.clone(),
+                        output.stderr.clone(),
+                    )),
+                )?;
             }
         }
 
         if self.expect_exit_code.is_some() && self.expect_exit_code != output.status.code() {
-            let out = String::from_utf8_lossy(&output.stdout).to_string();
-            let err = String::from_utf8_lossy(&output.stderr).to_string();
-            let err: Error =
-                ErrorKind::ExitCodeMismatch(self.expect_exit_code, output.status.code(), out, err)
-                    .into();
-            bail!(err.chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone())));
+            return Err(
+                AssertionError::new(self.cmd.clone()).chain(ExitCodeError::new(
+                    self.expect_exit_code,
+                    output.status.code(),
+                    output.stdout.clone(),
+                    output.stderr.clone(),
+                )),
+            );
         }
 
         self.expect_output
             .iter()
             .map(|a| {
                 a.verify(&output)
-                    .chain_err(|| ErrorKind::AssertionFailed(self.cmd.clone()))
+                    .chain_with(|| AssertionError::new(self.cmd.clone()))
             })
-            .collect::<Result<Vec<()>>>()?;
+            .collect::<Result<Vec<()>, AssertionError>>()?;
 
         Ok(())
     }
@@ -397,8 +409,16 @@ impl Assert {
     /// ```
     pub fn unwrap(self) {
         if let Err(err) = self.execute() {
-            panic!("{}", err.display_chain());
+            panic!(Self::format_causes(err.causes()));
         }
+    }
+
+    fn format_causes(mut causes: failure::Causes) -> String {
+        let mut result = causes.next().expect("an error should exist").to_string();
+        for cause in causes {
+            result.push_str(&format!("\nwith: {}", cause));
+        }
+        result
     }
 }
 
