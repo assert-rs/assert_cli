@@ -137,6 +137,9 @@ mod assert;
 mod diff;
 mod output;
 
+/// `std::process::Command` extensions.
+pub mod cmd;
+
 pub use assert::Assert;
 pub use assert::OutputAssertionBuilder;
 /// Environment is a re-export of the Environment crate
