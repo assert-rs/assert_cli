@@ -1,8 +1,8 @@
 extern crate failure;
 
+use std::env;
 use std::io;
 use std::io::Write;
-use std::env;
 use std::process;
 
 use failure::ResultExt;

@@ -5,8 +5,8 @@ use std::rc;
 use difference::Changeset;
 use failure;
 
-use errors::*;
 use diff;
+use errors::*;
 
 #[derive(Clone, PartialEq, Eq)]
 pub enum Content {
