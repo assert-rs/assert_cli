@@ -31,8 +31,14 @@ impl default::Default for Assert {
     /// Defaults to asserting _successful_ execution.
     fn default() -> Self {
         Assert {
-            cmd: vec!["cargo", "run", "--quiet", "--"]
-                .into_iter()
+            cmd: vec![
+                "cargo",
+                "run",
+                #[cfg(not(debug_assertions))]
+                "--release",
+                "--quiet",
+                "--",
+            ].into_iter()
                 .map(OsString::from)
                 .collect(),
             env: Environment::inherit(),
@@ -61,6 +67,8 @@ impl Assert {
             cmd: vec![
                 OsStr::new("cargo"),
                 OsStr::new("run"),
+                #[cfg(not(debug_assertions))]
+                OsStr::new("--release"),
                 OsStr::new("--quiet"),
                 OsStr::new("--bin"),
                 name.as_ref(),
@@ -528,6 +536,52 @@ mod test {
 
     fn command() -> Assert {
         Assert::command(&["printenv"])
+    }
+
+    #[test]
+    fn main_binary_default_uses_active_profile() {
+        let assert = Assert::main_binary();
+
+        let expected = if cfg!(debug_assertions) {
+            OsString::from("cargo run --quiet -- ")
+        } else {
+            OsString::from("cargo run --release --quiet -- ")
+        };
+
+        assert_eq!(
+            expected,
+            assert
+                .cmd
+                .into_iter()
+                .fold(OsString::from(""), |mut cmd, token| {
+                    cmd.push(token);
+                    cmd.push(" ");
+                    cmd
+                })
+        );
+    }
+
+    #[test]
+    fn cargo_binary_default_uses_active_profile() {
+        let assert = Assert::cargo_binary("hello");
+
+        let expected = if cfg!(debug_assertions) {
+            OsString::from("cargo run --quiet --bin hello -- ")
+        } else {
+            OsString::from("cargo run --release --quiet --bin hello -- ")
+        };
+
+        assert_eq!(
+            expected,
+            assert
+                .cmd
+                .into_iter()
+                .fold(OsString::from(""), |mut cmd, token| {
+                    cmd.push(token);
+                    cmd.push(" ");
+                    cmd
+                })
+        );
     }
 
     #[test]
