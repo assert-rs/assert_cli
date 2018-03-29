@@ -170,9 +170,34 @@ where
     ///     .output()
     ///     .unwrap();
     /// ```
-    fn unwrap(self) {
-        if let Err(err) = self.ok() {
-            panic!("{}", err);
+    fn unwrap(self) -> process::Output {
+        match self.ok() {
+            Ok(output) => output,
+            Err(err) => panic!("{}", err),
+        }
+    }
+
+    /// Unwrap a `std::process::Output` but with a prettier message than `.ok().unwrap()`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust,ignore
+    /// extern crate assert_cli;
+    /// use std::process::Command;
+    /// use assert_cli::cmd::*;
+    ///
+    /// Command::new("non_existent_command")
+    ///     .args(&["42"])
+    ///     .output()
+    ///     .unwrap_err();
+    /// ```
+    fn unwrap_err(self) -> OutputError {
+        match self.ok() {
+            Ok(output) => panic!(
+                "Command completed successfully\nstdout=```{}```",
+                dump_buffer(&output.stdout)
+            ),
+            Err(err) => err,
         }
     }
 }
@@ -227,6 +252,17 @@ impl<'c> OutputOkExt for &'c mut process::Command {
             Err(error)
         }
     }
+
+    fn unwrap_err(self) -> OutputError {
+        match self.ok() {
+            Ok(output) => panic!(
+                "Completed successfully:\ncommand=`{:?}`\nstdout=```{}```",
+                self,
+                dump_buffer(&output.stdout)
+            ),
+            Err(err) => err,
+        }
+    }
 }
 
 impl<'c> OutputOkExt for &'c mut StdInCommand {
@@ -253,6 +289,18 @@ impl<'c> OutputOkExt for &'c mut StdInCommand {
                 .set_cmd(format!("{:?}", self.cmd))
                 .set_stdin(self.stdin.clone());
             Err(error)
+        }
+    }
+
+    fn unwrap_err(self) -> OutputError {
+        match self.ok() {
+            Ok(output) => panic!(
+                "Completed successfully:\ncommand=`{:?}`\nstdin=```{}```\nstdout=```{}```",
+                self.cmd,
+                dump_buffer(&self.stdin),
+                dump_buffer(&output.stdout)
+            ),
+            Err(err) => err,
         }
     }
 }
@@ -363,5 +411,13 @@ impl fmt::Display for OutputError {
             }
         }
         write!(f, "{}", self.cause)
+    }
+}
+
+fn dump_buffer(buffer: &[u8]) -> String {
+    if let Ok(buffer) = str::from_utf8(&buffer) {
+        format!("{}", buffer)
+    } else {
+        format!("{:?}", buffer)
     }
 }
