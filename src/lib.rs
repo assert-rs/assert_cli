@@ -126,7 +126,9 @@ extern crate failure;
 extern crate failure_derive;
 extern crate globwalk;
 extern crate serde_json;
-extern crate tempfile;
+pub extern crate predicates;
+#[cfg(feature = "tempdir")]
+pub extern crate tempfile;
 
 mod errors;
 pub use errors::AssertionError;
