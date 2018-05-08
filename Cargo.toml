@@ -10,7 +10,6 @@ documentation = "http://docs.rs/assert_cli/"
 readme = "README.md"
 categories = ["development-tools::testing"]
 keywords = ["cli", "testing", "assert", "command-line-interface"]
-build = "build.rs"
 
 [[bin]]
 name = "assert_fixture"
@@ -23,11 +22,8 @@ failure_derive = "0.1"
 serde_json = "1.0"
 environment = "0.1"
 
-[build-dependencies]
-skeptic = "0.13"
-
 [dev-dependencies]
-skeptic = "0.13"
+docmatic = "0.1"
 
 [badges]
 travis-ci = { repository = "assert-rs/assert_cli" }
