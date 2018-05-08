@@ -9,7 +9,7 @@ homepage = "https://github.com/assert-rs/assert_cli"
 documentation = "http://docs.rs/assert_cli/"
 readme = "README.md"
 categories = ["development-tools::testing"]
-keywords = ["cli", "testing", "assert", "command-line-interface"]
+keywords = ["cli", "testing", "assert"]
 
 [[bin]]
 name = "assert_fixture"
