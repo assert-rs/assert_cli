@@ -1,6 +1,6 @@
 [package]
 name = "assert_cli"
-version = "0.5.5"
+version = "0.5.6"
 description = "Test CLI Applications."
 authors = ["Pascal Hertleif <killercup@gmail.com>", "Ed Page <eopage@byu.net>"]
 license = "MIT OR Apache-2.0"
