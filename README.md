@@ -13,7 +13,7 @@ For your tests, add it to your `Cargo.toml`:
 
 ```toml
 [dev-dependencies]
-assert_cli = "0.5"
+assert_cli = "0.6"
 ```
 
 ## Example
