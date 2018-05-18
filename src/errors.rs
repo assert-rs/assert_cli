@@ -5,7 +5,8 @@ use std::io;
 use failure;
 
 fn format_cmd(cmd: &[ffi::OsString]) -> String {
-    let result: Vec<String> = cmd.iter()
+    let result: Vec<String> = cmd
+        .iter()
         .map(|s| s.to_string_lossy().into_owned())
         .collect();
     result.join(" ")

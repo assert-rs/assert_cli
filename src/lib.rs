@@ -138,6 +138,7 @@ mod diff;
 mod output;
 
 pub use assert::Assert;
+pub use assert::InputPredicate;
 pub use assert::OutputAssertionBuilder;
 /// Environment is a re-export of the Environment crate
 ///
