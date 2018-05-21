@@ -80,6 +80,27 @@ impl Assert {
         }
     }
 
+    /// Run a specific example of the current crate.
+    ///
+    /// Defaults to asserting _successful_ execution.
+    pub fn example<S: AsRef<OsStr>>(name: S) -> Self {
+        Assert {
+            cmd: vec![
+                OsStr::new("cargo"),
+                OsStr::new("run"),
+                #[cfg(not(debug_assertions))]
+                OsStr::new("--release"),
+                OsStr::new("--quiet"),
+                OsStr::new("--example"),
+                name.as_ref(),
+                OsStr::new("--"),
+            ].into_iter()
+                .map(OsString::from)
+                .collect(),
+            ..Self::default()
+        }
+    }
+
     /// Run a custom command.
     ///
     /// Defaults to asserting _successful_ execution.
