@@ -22,7 +22,7 @@ pub struct Assert {
     expect_success: Option<bool>,
     expect_exit_code: Option<i32>,
     expect_output: Vec<OutputPredicate>,
-    stdin_contents: Vec<Box<InputPredicate>>,
+    stdin_contents: Vec<Box<StdinWriter>>,
 }
 
 impl default::Default for Assert {
@@ -221,7 +221,7 @@ impl Assert {
     /// ```rust
     /// extern crate assert_cli;
     ///
-    /// use assert_cli::InputPredicate;
+    /// use assert_cli::StdinWriter;
     /// use std::io::Error;
     /// use std::process::ChildStdin;
     /// use std::thread;
@@ -229,7 +229,7 @@ impl Assert {
     ///
     /// struct Wait(u64);
     ///
-    /// impl InputPredicate for Wait {
+    /// impl StdinWriter for Wait {
     ///     fn write(&self, _stdin: &mut ChildStdin) -> Result<(), Error> {
     ///         thread::sleep(Duration::from_secs(self.0));
     ///         Ok(())
@@ -244,7 +244,7 @@ impl Assert {
     ///         .stdout().contains("42")
     ///         .unwrap();
     /// }
-    pub fn stdin<P: Into<Box<InputPredicate>>>(mut self, pred: P) -> Self {
+    pub fn stdin<P: Into<Box<StdinWriter>>>(mut self, pred: P) -> Self {
         self.stdin_contents.push(pred.into());
         self
     }
@@ -648,7 +648,7 @@ impl OutputAssertionBuilder {
 }
 
 /// A type for writing to stdin during a test.
-pub trait InputPredicate {
+pub trait StdinWriter {
     /// Write to stdin.
     ///
     /// This provides a "handle" or "hook" to directly access the stdin pipe for lower-level
@@ -656,7 +656,7 @@ pub trait InputPredicate {
     fn write(&self, stdin: &mut ChildStdin) -> Result<(), Error>;
 }
 
-impl<F> InputPredicate for F
+impl<F> StdinWriter for F
 where
     F: Fn(&mut ChildStdin) -> Result<(), Error>,
 {
@@ -665,28 +665,28 @@ where
     }
 }
 
-impl<P> From<P> for Box<InputPredicate>
+impl<P> From<P> for Box<StdinWriter>
 where
-    P: InputPredicate + 'static,
+    P: StdinWriter + 'static,
 {
     fn from(p: P) -> Self {
         Box::new(p)
     }
 }
 
-impl From<Vec<u8>> for Box<InputPredicate> {
+impl From<Vec<u8>> for Box<StdinWriter> {
     fn from(contents: Vec<u8>) -> Self {
         Box::new(move |s: &mut ChildStdin| s.write_all(&contents))
     }
 }
 
-impl<'a> From<&'a [u8]> for Box<InputPredicate> {
+impl<'a> From<&'a [u8]> for Box<StdinWriter> {
     fn from(contents: &[u8]) -> Self {
         Self::from(contents.to_owned())
     }
 }
 
-impl<'a> From<&'a str> for Box<InputPredicate> {
+impl<'a> From<&'a str> for Box<StdinWriter> {
     fn from(contents: &str) -> Self {
         let c = contents.to_owned();
         Box::new(move |s: &mut ChildStdin| s.write_all(c.as_bytes()))
