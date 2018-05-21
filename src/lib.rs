@@ -124,7 +124,11 @@ extern crate environment;
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;
+extern crate globwalk;
 extern crate serde_json;
+pub extern crate predicates;
+#[cfg(feature = "tempdir")]
+pub extern crate tempfile;
 
 mod errors;
 pub use errors::AssertionError;
@@ -136,6 +140,12 @@ pub use macros::flatten_escaped_string;
 mod assert;
 mod diff;
 mod output;
+
+/// `std::process::Command` extensions.
+pub mod cmd;
+/// `tempfile::TempDir` extensions.
+#[cfg(feature = "tempdir")]
+pub mod temp;
 
 pub use assert::Assert;
 pub use assert::OutputAssertionBuilder;
