@@ -12,6 +12,8 @@ use failure::Fail;
 use errors::*;
 use output::{Content, Output, OutputKind, OutputPredicate};
 
+const CURRENT_TARGET: &str = include_str!(concat!(env!("OUT_DIR"), "/current_target.txt"));
+
 /// Assertions for a specific command.
 #[derive(Debug)]
 #[must_use]
@@ -36,6 +38,8 @@ impl default::Default for Assert {
                 "run",
                 #[cfg(not(debug_assertions))]
                 "--release",
+                "--target",
+                CURRENT_TARGET,
                 "--quiet",
                 "--",
             ].into_iter()
@@ -69,6 +73,8 @@ impl Assert {
                 OsStr::new("run"),
                 #[cfg(not(debug_assertions))]
                 OsStr::new("--release"),
+                OsStr::new("--target"),
+                OsStr::new(CURRENT_TARGET),
                 OsStr::new("--quiet"),
                 OsStr::new("--bin"),
                 name.as_ref(),
@@ -90,6 +96,8 @@ impl Assert {
                 OsStr::new("run"),
                 #[cfg(not(debug_assertions))]
                 OsStr::new("--release"),
+                OsStr::new("--target"),
+                OsStr::new(CURRENT_TARGET),
                 OsStr::new("--quiet"),
                 OsStr::new("--example"),
                 name.as_ref(),
@@ -557,52 +565,6 @@ mod test {
 
     fn command() -> Assert {
         Assert::command(&["printenv"])
-    }
-
-    #[test]
-    fn main_binary_default_uses_active_profile() {
-        let assert = Assert::main_binary();
-
-        let expected = if cfg!(debug_assertions) {
-            OsString::from("cargo run --quiet -- ")
-        } else {
-            OsString::from("cargo run --release --quiet -- ")
-        };
-
-        assert_eq!(
-            expected,
-            assert
-                .cmd
-                .into_iter()
-                .fold(OsString::from(""), |mut cmd, token| {
-                    cmd.push(token);
-                    cmd.push(" ");
-                    cmd
-                })
-        );
-    }
-
-    #[test]
-    fn cargo_binary_default_uses_active_profile() {
-        let assert = Assert::cargo_binary("hello");
-
-        let expected = if cfg!(debug_assertions) {
-            OsString::from("cargo run --quiet --bin hello -- ")
-        } else {
-            OsString::from("cargo run --release --quiet --bin hello -- ")
-        };
-
-        assert_eq!(
-            expected,
-            assert
-                .cmd
-                .into_iter()
-                .fold(OsString::from(""), |mut cmd, token| {
-                    cmd.push(token);
-                    cmd.push(" ");
-                    cmd
-                })
-        );
     }
 
     #[test]
