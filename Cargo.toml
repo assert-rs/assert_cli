@@ -12,7 +12,7 @@ categories = ["development-tools::testing"]
 keywords = ["cli", "testing", "assert"]
 
 [[bin]]
-name = "assert_fixture"
+name = "bin_fixture"
 
 [dependencies]
 colored = "1.5"
