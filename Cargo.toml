@@ -12,13 +12,14 @@ categories = ["development-tools::testing"]
 keywords = ["cli", "testing", "assert"]
 
 [[bin]]
-name = "assert_fixture"
+name = "bin_fixture"
 
 [dependencies]
 colored = "1.5"
 difference = "2.0"
 failure = "0.1"
 failure_derive = "0.1"
+serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 environment = "0.1"
 
