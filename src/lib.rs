@@ -124,6 +124,8 @@ extern crate environment;
 extern crate failure;
 #[macro_use]
 extern crate failure_derive;
+#[macro_use]
+extern crate serde;
 extern crate serde_json;
 
 mod errors;
@@ -134,6 +136,7 @@ mod macros;
 pub use macros::flatten_escaped_string;
 
 mod assert;
+mod cargo;
 mod diff;
 mod output;
 

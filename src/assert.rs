@@ -1,4 +1,3 @@
-use std::default;
 use std::ffi::{OsStr, OsString};
 use std::io::Write;
 use std::path::PathBuf;
@@ -11,6 +10,35 @@ use failure::Fail;
 
 use errors::*;
 use output::{Content, Output, OutputKind, OutputPredicate};
+use cargo;
+
+#[derive(Deserialize)]
+struct MessageTarget<'a> {
+    #[serde(borrow)]
+    crate_types: Vec<&'a str>,
+    #[serde(borrow)]
+    kind: Vec<&'a str>,
+}
+
+#[derive(Deserialize)]
+struct MessageFilter<'a> {
+    #[serde(borrow)]
+    reason: &'a str,
+    target: MessageTarget<'a>,
+    #[serde(borrow)]
+    filenames: Vec<&'a str>,
+}
+
+fn filenames(msg: cargo::Message, kind: &str) -> Option<String> {
+    let filter: MessageFilter = msg.convert().ok()?;
+    if filter.reason != "compiler-artifact" || filter.target.crate_types != ["bin"]
+        || filter.target.kind != [kind]
+    {
+        None
+    } else {
+        Some(filter.filenames[0].to_owned())
+    }
+}
 
 /// Assertions for a specific command.
 #[derive(Debug)]
@@ -25,80 +53,72 @@ pub struct Assert {
     stdin_contents: Option<Vec<u8>>,
 }
 
-impl default::Default for Assert {
-    /// Construct an assert using `cargo run --` as command.
+impl Assert {
+    /// Run the crate's main binary.
     ///
     /// Defaults to asserting _successful_ execution.
-    fn default() -> Self {
-        Assert {
-            cmd: vec![
-                "cargo",
-                "run",
-                #[cfg(not(debug_assertions))]
-                "--release",
-                "--quiet",
-                "--",
-            ].into_iter()
-                .map(OsString::from)
-                .collect(),
+    pub fn main_binary() -> Result<Self, failure::Error> {
+        let cargo = cargo::Cargo::new().build().current_release();
+        let bins: Vec<_> = cargo.exec()?.filter_map(|m| filenames(m, "bin")).collect();
+        if bins.is_empty() {
+            bail!("No binaries in crate");
+        } else if bins.len() != 1 {
+            bail!("Ambiguous which binary is intended: {:?}", bins);
+        }
+        let bin = bins[0].as_str();
+        let cmd = Self {
+            cmd: vec![bin].into_iter().map(OsString::from).collect(),
             env: Environment::inherit(),
             current_dir: None,
             expect_success: Some(true),
             expect_exit_code: None,
             expect_output: vec![],
             stdin_contents: None,
-        }
-    }
-}
-
-impl Assert {
-    /// Run the crate's main binary.
-    ///
-    /// Defaults to asserting _successful_ execution.
-    pub fn main_binary() -> Self {
-        Assert::default()
+        };
+        Ok(cmd)
     }
 
     /// Run a specific binary of the current crate.
     ///
     /// Defaults to asserting _successful_ execution.
-    pub fn cargo_binary<S: AsRef<OsStr>>(name: S) -> Self {
-        Assert {
-            cmd: vec![
-                OsStr::new("cargo"),
-                OsStr::new("run"),
-                #[cfg(not(debug_assertions))]
-                OsStr::new("--release"),
-                OsStr::new("--quiet"),
-                OsStr::new("--bin"),
-                name.as_ref(),
-                OsStr::new("--"),
-            ].into_iter()
-                .map(OsString::from)
-                .collect(),
-            ..Self::default()
-        }
+    pub fn cargo_binary<S: AsRef<OsStr>>(name: S) -> Result<Self, failure::Error> {
+        let cargo = cargo::Cargo::new().build().bin(name).current_release();
+        let bins: Vec<_> = cargo.exec()?.filter_map(|m| filenames(m, "bin")).collect();
+        assert_eq!(bins.len(), 1);
+        let bin = bins[0].as_str();
+        let cmd = Self {
+            cmd: vec![bin].into_iter().map(OsString::from).collect(),
+            env: Environment::inherit(),
+            current_dir: None,
+            expect_success: Some(true),
+            expect_exit_code: None,
+            expect_output: vec![],
+            stdin_contents: None,
+        };
+        Ok(cmd)
     }
 
     /// Run a specific example of the current crate.
     ///
     /// Defaults to asserting _successful_ execution.
-    pub fn example<S: AsRef<OsStr>>(name: S) -> Self {
-        Assert {
-            cmd: vec![
-                OsStr::new("cargo"),
-                OsStr::new("run"),
-                #[cfg(not(debug_assertions))]
-                OsStr::new("--release"),
-                OsStr::new("--quiet"),
-                OsStr::new("--example"),
-                name.as_ref(),
-                OsStr::new("--"),
-            ].into_iter()
-                .map(OsString::from)
-                .collect(),
-            ..Self::default()
-        }
+    pub fn example<S: AsRef<OsStr>>(name: S) -> Result<Self, failure::Error> {
+        let cargo = cargo::Cargo::new().build().example(name).current_release();
+        let bins: Vec<_> = cargo
+            .exec()?
+            .filter_map(|m| filenames(m, "example"))
+            .collect();
+        assert_eq!(bins.len(), 1);
+        let bin = bins[0].as_str();
+        let cmd = Self {
+            cmd: vec![bin].into_iter().map(OsString::from).collect(),
+            env: Environment::inherit(),
+            current_dir: None,
+            expect_success: Some(true),
+            expect_exit_code: None,
+            expect_output: vec![],
+            stdin_contents: None,
+        };
+        Ok(cmd)
     }
 
     /// Run a custom command.
@@ -116,7 +136,12 @@ impl Assert {
     pub fn command<S: AsRef<OsStr>>(cmd: &[S]) -> Self {
         Assert {
             cmd: cmd.into_iter().map(OsString::from).collect(),
-            ..Self::default()
+            env: Environment::inherit(),
+            current_dir: None,
+            expect_success: Some(true),
+            expect_exit_code: None,
+            expect_output: vec![],
+            stdin_contents: None,
         }
     }
 
@@ -557,52 +582,6 @@ mod test {
 
     fn command() -> Assert {
         Assert::command(&["printenv"])
-    }
-
-    #[test]
-    fn main_binary_default_uses_active_profile() {
-        let assert = Assert::main_binary();
-
-        let expected = if cfg!(debug_assertions) {
-            OsString::from("cargo run --quiet -- ")
-        } else {
-            OsString::from("cargo run --release --quiet -- ")
-        };
-
-        assert_eq!(
-            expected,
-            assert
-                .cmd
-                .into_iter()
-                .fold(OsString::from(""), |mut cmd, token| {
-                    cmd.push(token);
-                    cmd.push(" ");
-                    cmd
-                })
-        );
-    }
-
-    #[test]
-    fn cargo_binary_default_uses_active_profile() {
-        let assert = Assert::cargo_binary("hello");
-
-        let expected = if cfg!(debug_assertions) {
-            OsString::from("cargo run --quiet --bin hello -- ")
-        } else {
-            OsString::from("cargo run --release --quiet --bin hello -- ")
-        };
-
-        assert_eq!(
-            expected,
-            assert
-                .cmd
-                .into_iter()
-                .fold(OsString::from(""), |mut cmd, token| {
-                    cmd.push(token);
-                    cmd.push(" ");
-                    cmd
-                })
-        );
     }
 
     #[test]
