@@ -15,29 +15,33 @@ pub fn render(&Changeset { ref diffs, .. }: &Changeset) -> Result<String, fmtErr
                 writeln!(t, "{}", format!("-{}", x).red())?;
             }
             Difference::Add(ref x) => {
-                match diffs[i - 1] {
-                    Difference::Rem(ref y) => {
-                        write!(t, "{}", "+".green())?;
-                        let Changeset { diffs, .. } = Changeset::new(y, x, " ");
-                        for c in diffs {
-                            match c {
-                                Difference::Same(ref z) if !z.is_empty() => {
-                                    write!(t, "{}", z.green())?;
-                                    write!(t, " ")?;
+                if i == 0 {
+                    writeln!(t, "{}", format!("+{}", x).green())?;
+                } else {
+                    match diffs[i - 1] {
+                        Difference::Rem(ref y) => {
+                            write!(t, "{}", "+".green())?;
+                            let Changeset { diffs, .. } = Changeset::new(y, x, " ");
+                            for c in diffs {
+                                match c {
+                                    Difference::Same(ref z) if !z.is_empty() => {
+                                        write!(t, "{}", z.green())?;
+                                        write!(t, " ")?;
+                                    }
+                                    Difference::Add(ref z) if !z.is_empty() => {
+                                        write!(t, "{}", z.green().reverse())?;
+                                        write!(t, " ")?;
+                                    }
+                                    _ => (),
                                 }
-                                Difference::Add(ref z) if !z.is_empty() => {
-                                    write!(t, "{}", z.green().reverse())?;
-                                    write!(t, " ")?;
-                                }
-                                _ => (),
                             }
+                            writeln!(t, "")?;
                         }
-                        writeln!(t, "")?;
-                    }
-                    _ => {
-                        writeln!(t, "{}", format!("+{}", x).green().dimmed())?;
-                    }
-                };
+                        _ => {
+                            writeln!(t, "{}", format!("+{}", x).green().dimmed())?;
+                        }
+                    };
+                }
             }
         }
     }
@@ -82,6 +86,20 @@ ullamco laboris nisi ut aliquip ex ea commodo consequat.",
              et dolore magna\u{1b}[0m \n aliqua. Ut enim ad minim veniam, quis \
              nostrud exercitation\nullamco laboris nisi ut aliquip ex ea \
              commodo consequat.\n"
+        );
+    }
+
+    #[test]
+    fn added_first_line_diff() {
+        let diff = Changeset::new(
+            "Line 1\nLine 2\nLine 3",
+            "Line 0\nLine 1\nLine 2\nLine 3",
+            "\n",
+        );
+        println!("{}", render(&diff).unwrap());
+        assert_eq!(
+            render(&diff).unwrap(),
+            "\u{1b}[32m+Line 0\u{1b}[0m\n Line 1\nLine 2\nLine 3\n"
         );
     }
 }
