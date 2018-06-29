@@ -1,8 +1,8 @@
 [package]
 name = "assert_cli"
-version = "0.6.1"
+version = "0.6.2"
 description = "Test CLI Applications."
-authors = ["Pascal Hertleif <killercup@gmail.com>", "Ed Page <eopage@byu.net>"]
+authors = ["Pascal Hertleif <killercup@gmail.com>", "Ed Page <eopage@gmail.com>"]
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/assert-rs/assert_cli.git"
 homepage = "https://github.com/assert-rs/assert_cli"
