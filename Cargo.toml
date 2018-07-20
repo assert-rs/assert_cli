@@ -27,3 +27,4 @@ docmatic = "0.1"
 
 [badges]
 travis-ci = { repository = "assert-rs/assert_cli" }
+maintenance = { status = "deprecated" }
