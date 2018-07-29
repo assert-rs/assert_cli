@@ -1,8 +1,9 @@
 use std::default;
 use std::ffi::{OsStr, OsString};
-use std::io::Write;
+use std::fmt;
+use std::io::{Error, Write};
 use std::path::PathBuf;
-use std::process::{Command, Stdio};
+use std::process::{ChildStdin, Command, Stdio};
 use std::vec::Vec;
 
 use environment::Environment;
@@ -13,7 +14,6 @@ use errors::*;
 use output::{Content, Output, OutputKind, OutputPredicate};
 
 /// Assertions for a specific command.
-#[derive(Debug)]
 #[must_use]
 pub struct Assert {
     cmd: Vec<OsString>,
@@ -22,7 +22,7 @@ pub struct Assert {
     expect_success: Option<bool>,
     expect_exit_code: Option<i32>,
     expect_output: Vec<OutputPredicate>,
-    stdin_contents: Option<Vec<u8>>,
+    stdin_contents: Vec<Box<StdinWriter>>,
 }
 
 impl default::Default for Assert {
@@ -46,8 +46,22 @@ impl default::Default for Assert {
             expect_success: Some(true),
             expect_exit_code: None,
             expect_output: vec![],
-            stdin_contents: None,
+            stdin_contents: vec![],
         }
+    }
+}
+
+impl fmt::Debug for Assert {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Assert")
+            .field("cmd", &self.cmd)
+            .field("env", &self.env)
+            .field("current_dir", &self.current_dir)
+            .field("expect_success", &self.expect_success)
+            .field("expect_exit_code", &self.expect_exit_code)
+            .field("expect_output", &self.expect_output)
+            .field("stdin_contents", &self.stdin_contents.len())
+            .finish()
     }
 }
 
@@ -142,6 +156,8 @@ impl Assert {
     ///
     /// # Examples
     ///
+    /// Basic usage.
+    ///
     /// ```rust
     /// extern crate assert_cli;
     ///
@@ -150,8 +166,86 @@ impl Assert {
     ///     .stdout().contains("42")
     ///     .unwrap();
     /// ```
-    pub fn stdin<S: Into<Vec<u8>>>(mut self, contents: S) -> Self {
-        self.stdin_contents = Some(contents.into());
+    ///
+    /// A closure can also be used to compute the contents to write to stdin.
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// use std::io::Write;
+    /// use std::process::ChildStdin;
+    ///
+    /// assert_cli::Assert::command(&["cat"])
+    ///     .stdin(|s: &mut ChildStdin| {
+    ///         s.write_all("42".as_bytes())
+    ///     })
+    ///     .stdout().contains("42")
+    ///     .unwrap();
+    /// ```
+    ///
+    /// Content can be composed over time with a chain. This allows for mimicking the streaming
+    /// nature of stdio when the CLI application is used with pipes.
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// assert_cli::Assert::command(&["cat"])
+    ///     .stdin("4")
+    ///     .stdin("2")
+    ///     .stdout().contains("42")
+    ///     .unwrap();
+    /// ```
+    ///
+    /// or to mimick streaming of discontinuous data from a pipe.
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// use std::thread;
+    /// use std::time::Duration;
+    ///
+    /// assert_cli::Assert::command(&["cat"])
+    ///     .stdin("4")
+    ///     .stdin(|_: &mut _| {
+    ///         thread::sleep(Duration::from_secs(1));
+    ///         Ok(())
+    ///     })
+    ///     .stdin("2")
+    ///     .stdout().contains("42")
+    ///     .unwrap();
+    /// ```
+    ///
+    /// The previous example can also be implemented with a custom struct type for better code
+    /// reuse in multiple tests and arguably improved readability.
+    ///
+    /// ```rust
+    /// extern crate assert_cli;
+    ///
+    /// use assert_cli::StdinWriter;
+    /// use std::io::Error;
+    /// use std::process::ChildStdin;
+    /// use std::thread;
+    /// use std::time::Duration;
+    ///
+    /// struct Wait(u64);
+    ///
+    /// impl StdinWriter for Wait {
+    ///     fn write(&self, _stdin: &mut ChildStdin) -> Result<(), Error> {
+    ///         thread::sleep(Duration::from_secs(self.0));
+    ///         Ok(())
+    ///     }
+    /// }
+    ///
+    /// fn main() {
+    ///     assert_cli::Assert::command(&["cat"])
+    ///         .stdin("4")
+    ///         .stdin(Wait(1))
+    ///         .stdin("2")
+    ///         .stdout().contains("42")
+    ///         .unwrap();
+    /// }
+    pub fn stdin<P: Into<Box<StdinWriter>>>(mut self, pred: P) -> Self {
+        self.stdin_contents.push(pred.into());
         self
     }
 
@@ -378,14 +472,17 @@ impl Assert {
             .spawn()
             .chain_with(|| AssertionError::new(self.cmd.clone()))?;
 
-        if let Some(ref contents) = self.stdin_contents {
-            spawned
+        if !self.stdin_contents.is_empty() {
+            let mut stdin = spawned
                 .stdin
                 .as_mut()
-                .expect("Couldn't get mut ref to command stdin")
-                .write_all(contents)
-                .chain_with(|| AssertionError::new(self.cmd.clone()))?;
+                .expect("Couldn't get mut ref to command stdin");
+            for p in &self.stdin_contents {
+                p.write(&mut stdin)
+                    .chain_with(|| AssertionError::new(self.cmd.clone()))?;
+            }
         }
+
         let output = spawned
             .wait_with_output()
             .chain_with(|| AssertionError::new(self.cmd.clone()))?;
@@ -547,6 +644,52 @@ impl OutputAssertionBuilder {
         let pred = OutputPredicate::new(self.kind, Output::satisfies(pred, msg));
         self.assertion.expect_output.push(pred);
         self.assertion
+    }
+}
+
+/// A type for writing to stdin during a test.
+pub trait StdinWriter {
+    /// Write to stdin.
+    ///
+    /// This provides a "handle" or "hook" to directly access the stdin pipe for lower-level
+    /// control and usage.
+    fn write(&self, stdin: &mut ChildStdin) -> Result<(), Error>;
+}
+
+impl<F> StdinWriter for F
+where
+    F: Fn(&mut ChildStdin) -> Result<(), Error>,
+{
+    fn write(&self, stdin: &mut ChildStdin) -> Result<(), Error> {
+        self(stdin)
+    }
+}
+
+impl<P> From<P> for Box<StdinWriter>
+where
+    P: StdinWriter + 'static,
+{
+    fn from(p: P) -> Self {
+        Box::new(p)
+    }
+}
+
+impl From<Vec<u8>> for Box<StdinWriter> {
+    fn from(contents: Vec<u8>) -> Self {
+        Box::new(move |s: &mut ChildStdin| s.write_all(&contents))
+    }
+}
+
+impl<'a> From<&'a [u8]> for Box<StdinWriter> {
+    fn from(contents: &[u8]) -> Self {
+        Self::from(contents.to_owned())
+    }
+}
+
+impl<'a> From<&'a str> for Box<StdinWriter> {
+    fn from(contents: &str) -> Self {
+        let c = contents.to_owned();
+        Box::new(move |s: &mut ChildStdin| s.write_all(c.as_bytes()))
     }
 }
 
